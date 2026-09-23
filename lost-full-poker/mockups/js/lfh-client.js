@@ -16,6 +16,13 @@ window.LFH = (function () {
   const SESSION_KEY = "lfh_session";
   let client = null;
 
+  // Chromeなどのbfcache(ページ遷移時にページを「凍結」して裏で保持する機能)が働くと、
+  // location.href で次のページへ移動してもWebSocket接続がすぐには切れず、
+  // サーバー側のonLeave(再接続の受付開始)が数十秒遅れることがある。
+  // ダミーのunloadリスナーを登録しておくと、ブラウザはbfcacheを使わず
+  // ページ遷移時に確実に接続を即座に閉じるようになる。
+  window.addEventListener("unload", function () {});
+
   function getClient() {
     if (!client) client = new Colyseus.Client(SERVER_URL);
     return client;
