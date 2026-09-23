@@ -76,27 +76,32 @@ window.LFH = (function () {
 
   /**
    * 直前のページで確立したセッションに復帰する。
-   * 保存されたセッションが無い、または再接続に失敗した場合はnullを返す
-   * (呼び出し側はtitle.htmlへ戻すなどのフォールバック処理を行うこと)。
-   * ページ遷移直後の一瞬のタイミングのズレに備え、失敗時は少し待って2回までリトライする。
+   * 保存されたセッションが無い場合はnullを返す。
+   * 再接続に失敗した場合は、最後に発生したエラーをそのままthrowする
+   * (呼び出し側でエラー内容を確認できるようにするため。誰にも見えない失敗にしない)。
+   * ページ遷移直後の一瞬のタイミングのズレに備え、間隔を空けながら複数回リトライする。
    */
   async function reconnectRoom() {
     const session = loadSession();
     if (!session) return null;
 
-    for (let attempt = 0; attempt < 3; attempt++) {
+    const delays = [300, 600, 1000, 1500, 2000]; // 合計約5.4秒粘る
+    let lastError = null;
+    for (let attempt = 0; attempt <= delays.length; attempt++) {
       try {
         const room = await getClient().reconnect(session.reconnectionToken);
         saveSession(room); // reconnectionTokenは使い回しではなく都度更新されるため保存し直す
         return room;
       } catch (e) {
-        if (attempt < 2) {
-          await new Promise((resolve) => setTimeout(resolve, 500));
+        lastError = e;
+        console.warn('[LFH] reconnect attempt failed:', e);
+        if (attempt < delays.length) {
+          await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
         }
       }
     }
     clearSession();
-    return null;
+    throw lastError || new Error('reconnect failed with unknown error');
   }
 
   return {

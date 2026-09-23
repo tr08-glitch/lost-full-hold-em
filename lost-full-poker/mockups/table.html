@@ -674,7 +674,14 @@
 
     // ---------- 初期化・接続 ----------
     async function init() {
-      room = await LFH.reconnectRoom();
+      try {
+        room = await LFH.reconnectRoom();
+      } catch (e) {
+        console.error(e);
+        alert('サーバーへの再接続に失敗しました。タイトルに戻ります。');
+        location.href = 'title.html';
+        return;
+      }
       if (!room) {
         alert('セッションが見つかりません。タイトルに戻ります。');
         location.href = 'title.html';

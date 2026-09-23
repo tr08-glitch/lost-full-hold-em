@@ -215,7 +215,7 @@
         }
       } catch (e) {
         console.error(e);
-        alert('ルームへの接続に失敗しました。タイトルに戻ります。');
+        alert('ルームへの接続に失敗しました。タイトルに戻ります。\n(詳細: ' + (e && e.message ? e.message : e) + ')');
         location.href = 'title.html';
         return;
       }
