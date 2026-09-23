@@ -53,14 +53,14 @@
         document.getElementById('errorMsg').textContent = '4桁のコードを入力してください';
         return;
       }
-      const name = localStorage.getItem('playerName') || 'プレイヤー1';
+      const name = sessionStorage.getItem('playerName') || 'プレイヤー1';
       const btn = document.getElementById('confirmBtn');
       btn.disabled = true;
       document.getElementById('errorMsg').textContent = '';
 
       try {
         await LFH.joinRoomByCode(code, { name });
-        localStorage.setItem('isGM', 'false');
+        sessionStorage.setItem('isGM', 'false');
         location.href = 'room-create.html';
       } catch (e) {
         console.error(e);

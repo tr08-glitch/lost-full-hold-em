@@ -35,8 +35,10 @@
     function goTo(url, isGM) {
       const input = document.getElementById('playerNameInput');
       const name = input.value.trim() || input.placeholder;
-      localStorage.setItem('playerName', name);
-      localStorage.setItem('isGM', isGM ? 'true' : 'false');
+      // sessionStorageに保存(タブごとに独立させ、同じブラウザの複数タブで
+      // 別プレイヤーとしてテストプレイできるようにするため。localStorageだと全タブで共有されてしまう)
+      sessionStorage.setItem('playerName', name);
+      sessionStorage.setItem('isGM', isGM ? 'true' : 'false');
       location.href = url;
     }
   </script>

@@ -123,7 +123,7 @@
     let navigatedToTable = false;
 
     (function applyRole() {
-      const isGM = localStorage.getItem('isGM') === 'true';
+      const isGM = sessionStorage.getItem('isGM') === 'true';
       if (!isGM) document.body.classList.add('role-participant');
     })();
 
@@ -198,7 +198,7 @@
         room = await LFH.reconnectRoom();
         if (!room) {
           // 復帰対象のセッションが無い = title.htmlから初めて来た(GMとして新規作成)
-          const name = localStorage.getItem('playerName') || 'プレイヤー1';
+          const name = sessionStorage.getItem('playerName') || 'プレイヤー1';
           room = await LFH.createRoom({
             name,
             mode: document.getElementById('modeSelect').value,
