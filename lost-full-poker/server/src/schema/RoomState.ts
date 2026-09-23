@@ -47,6 +47,9 @@ export class RoomState extends Schema {
 
   @type("boolean") gameStarted: boolean = false;
 
+  // 4桁の数字によるルームコード(参加者が入力する用。Colyseus内部のroomIdとは別物)
+  @type("string") roomCode: string = "";
+
   // ロストフルモード:ロストイン(特殊技)の進行状態
   @type("boolean") lostInActive: boolean = false; // 宣言〜応答が全員終わるまでtrue
   @type("string") lostInDeclarerId: string = "";

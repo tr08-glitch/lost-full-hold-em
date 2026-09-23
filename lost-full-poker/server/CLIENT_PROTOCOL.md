@@ -17,9 +17,9 @@ const room = await client.joinOrCreate("poker", {
 });
 ```
 
-- **ルームコードの方式**:Colyseusがルームごとに自動発行する`roomId`(英数字の文字列)を、そのまま「ルームコード」として使う。4桁数字のような専用コード体系は導入しない
-- GM(ルーム作成)は `client.create("poker", options)`、参加者は `client.joinById(roomId, { name })` を使う
-- ページ遷移(title→room-create→table)のたびにJSの実行コンテキストがリセットされる(＝WebSocket接続が切れる)ため、`room.roomId` / `room.sessionId` / `room.reconnectionToken` を`sessionStorage`に保存しておき、次のページでは`client.reconnect(reconnectionToken)`で同じセッションに復帰する。この一連の処理は`mockups/js/lfh-client.js`にまとめてある(`LFH.createRoom` / `LFH.joinRoom` / `LFH.reconnectRoom`)
+- **ルームコードの方式**:参加者が入力するのは**4桁の数字コード**(`RoomState.roomCode`)。Colyseus内部の`roomId`(英数字)とは別物で、サーバー(`PokerRoom.onCreate`)がルーム作成のたびに重複しないよう発行し、`room.setMetadata({ code })`で公開する
+- GM(ルーム作成)は `client.create("poker", options)`。参加者はまず `client.getAvailableRooms("poker")` で現在募集中のルーム一覧を取得し、`metadata.code`が入力されたコードと一致するものを探して、その実際の`roomId`で`client.joinById(roomId, { name })`する(この一連の処理は`LFH.joinRoomByCode(code, options)`にまとめてある)
+- ページ遷移(title→room-create→table)のたびにJSの実行コンテキストがリセットされる(＝WebSocket接続が切れる)ため、`room.roomId` / `room.sessionId` / `room.reconnectionToken` を`sessionStorage`に保存しておき、次のページでは`client.reconnect(reconnectionToken)`で同じセッションに復帰する。この一連の処理は`mockups/js/lfh-client.js`にまとめてある(`LFH.createRoom` / `LFH.joinRoom` / `LFH.joinRoomByCode` / `LFH.reconnectRoom`)
 - サーバー側(`PokerRoom.onLeave`)は、非明示的な切断(ページ遷移含む)に対して60秒間の再接続猶予を`allowReconnection`で与えるよう実装済み。「退室」ボタンなど明示的な離脱時は`room.leave(true)`(consented=true)を呼ぶことで、猶予なしで即座に処理される
 - `options.mode` / `options.bigBlind` / `options.startingChips` / `options.maxRounds` は
   ルーム作成時(`client.create`の第2引数)にGMが指定する。ゲーム開始前であれば`updateSettings`メッセージで変更も可能
@@ -49,6 +49,7 @@ RoomState {
   lastAggressorId: string
   log: string[]                    // 直近の進行ログ(最大50件)
   gameStarted: boolean
+  roomCode: string                 // 参加者が入力する4桁の数字コード
   deckRemaining: number            // 山札の残り枚数
   discardCount: number             // 使用済みカード置き場の枚数
   lostInActive: boolean            // ロストインの宣言〜応答が進行中かどうか
@@ -154,7 +155,7 @@ title.html → room-create.html(GM)/ room-join.html → table.html の一連の�
 `mockups/js/lfh-client.js` 経由でこのサーバーに実接続するよう実装済み。
 - **サーバーURLの設定**:`mockups/js/lfh-client.js` 先頭の `SERVER_URL` を、実際にデプロイしたサーバーの
   WebSocket URL(例: `wss://your-app.onrender.com`)に書き換える必要がある。デフォルトは `ws://localhost:2567`
-- ルームコードは前述の通りColyseusの`roomId`をそのまま使用
+- ルームコードは4桁の数字(`RoomState.roomCode`)。前述の通り、実際のjoinには内部の`roomId`を使う
 - ページ遷移のたびに再接続(`client.reconnect`)する方式のため、リロードにも耐えられる
 
 ### `exchangeBodyPart`(ロストフルモードのみ、いつでも送信可能)
@@ -208,5 +209,5 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 
 ## 今後の課題(未着手)
 - ジョーカーの有無・枚数設定はサーバー未実装
-- ルームコード(roomId)を人に伝える手段(URLシェア・コピー機能など)はUI未実装。今は`roomIdText`に表示するのみ
+- ルームコード(4桁)を人に伝える手段(コピー機能など)はUI未実装。今は画面に表示するのみ
 - チャット機能はサーバー未実装(room-create.htmlのチャットUIは見た目のみ)

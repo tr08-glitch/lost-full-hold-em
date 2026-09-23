@@ -1,4 +1,4 @@
-import { Room, Client } from "colyseus";
+import { Room, Client, matchMaker } from "colyseus";
 import { RoomState } from "../schema/RoomState";
 import { PlayerState } from "../schema/PlayerState";
 import { Deck } from "../logic/deck";
@@ -43,7 +43,7 @@ export class PokerRoom extends Room<RoomState> {
   // 集計から抜け落ちてしまう)。
   private handParticipants: string[] = [];
 
-  onCreate(options: RoomOptions) {
+  async onCreate(options: RoomOptions) {
     this.setState(new RoomState());
 
     this.state.maxRounds = options.maxRounds ?? 10;
@@ -53,6 +53,12 @@ export class PokerRoom extends Room<RoomState> {
     this.state.startingChips = options.startingChips ?? 1000;
     this.state.mode = options.mode ?? "normal";
 
+    // 参加者が入力する4桁のルームコードを発行(Colyseus内部のroomIdとは別物、現在有効な他の
+    // 「poker」ルームと重複しないことを確認してから採番する)
+    const roomCode = await this.generateUniqueRoomCode();
+    this.state.roomCode = roomCode;
+    await this.setMetadata({ code: roomCode });
+
     this.onMessage("startGame", (client) => this.handleStartGame(client));
     this.onMessage("action", (client, message: ActionMessage) =>
       this.handleAction(client, message)
@@ -60,6 +66,18 @@ export class PokerRoom extends Room<RoomState> {
     this.onMessage("updateSettings", (client, message) => this.handleUpdateSettings(client, message));
     this.onMessage("surrender", (client) => this.handleSurrender(client));
     this.onMessage("exchangeBodyPart", (client, message) => this.handleExchangeBodyPart(client, message));
+  }
+
+  /** 現在アクティブな他の「poker」ルームと重複しない4桁のルームコードを発行する */
+  private async generateUniqueRoomCode(): Promise<string> {
+    for (let i = 0; i < 20; i++) {
+      const code = String(Math.floor(1000 + Math.random() * 9000));
+      const existingRooms = await matchMaker.query({ name: "poker" });
+      const taken = existingRooms.some((r) => r.metadata && r.metadata.code === code);
+      if (!taken) return code;
+    }
+    // 20回試して空きが見つからない場合のフォールバック(理論上ほぼ到達しない)
+    return String(Math.floor(1000 + Math.random() * 9000));
   }
 
   onJoin(client: Client, options: { name?: string }) {

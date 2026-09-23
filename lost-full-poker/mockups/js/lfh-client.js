@@ -52,11 +52,26 @@ window.LFH = (function () {
     return room;
   }
 
-  /** ルームコード(=ColyseusのroomId)を指定して参加する */
+  /** ルームID(Colyseus内部ID)を直接指定して参加する */
   async function joinRoom(roomId, options) {
     const room = await getClient().joinById(roomId, options);
     saveSession(room);
     return room;
+  }
+
+  /**
+   * 4桁のルームコードを指定して参加する。
+   * サーバーの各「poker」ルームはmetadata.codeにコードを持っているので、
+   * 現在募集中のルーム一覧から一致するものを探し、そのColyseus内部roomIdでjoinする。
+   * 該当が無い場合はエラーを投げる(呼び出し側でキャッチしてエラー表示すること)。
+   */
+  async function joinRoomByCode(code, options) {
+    const rooms = await getClient().getAvailableRooms("poker");
+    const match = rooms.find((r) => r.metadata && r.metadata.code === code);
+    if (!match) {
+      throw new Error("room not found for code: " + code);
+    }
+    return joinRoom(match.roomId, options);
   }
 
   /**
@@ -81,6 +96,7 @@ window.LFH = (function () {
     getClient,
     createRoom,
     joinRoom,
+    joinRoomByCode,
     reconnectRoom,
     saveSession,
     loadSession,
