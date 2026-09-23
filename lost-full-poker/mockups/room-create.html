@@ -109,6 +109,32 @@
     </div>
   </div>
   <script>
+    function applyPlayerName() {
+      const name = localStorage.getItem('playerName') || 'プレイヤー1';
+      const isJoining = localStorage.getItem('joiningRoom') === 'true';
+      const list = document.getElementById('playerList');
+      list.innerHTML = '';
+
+      if (isJoining) {
+        // ルーム参加経由:既存のGM(プレイヤー1)+自分(参加者)の2人を表示
+        const gmLi = document.createElement('li');
+        gmLi.textContent = 'プレイヤー1(GM)';
+        list.appendChild(gmLi);
+
+        const meLi = document.createElement('li');
+        meLi.textContent = name;
+        list.appendChild(meLi);
+
+        localStorage.removeItem('joiningRoom');
+      } else {
+        // ルーム作成経由:自分がGMとして1人だけ表示
+        const li = document.createElement('li');
+        li.textContent = name + '(GM)';
+        list.appendChild(li);
+      }
+    }
+    applyPlayerName();
+
     function updateStartButton() {
       const count = document.getElementById('playerList').children.length;
       const btn = document.getElementById('startBtn');

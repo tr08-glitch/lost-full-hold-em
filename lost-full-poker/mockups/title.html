@@ -22,14 +22,22 @@
     <div class="settings-icon">⚙</div>
     <div class="name-input">
       <label style="font-size:12px;color:#999;">プレイヤー名</label><br>
-      <input type="text" placeholder="プレイヤー1" maxlength="10">
+      <input type="text" id="playerNameInput" placeholder="プレイヤー1" maxlength="10">
     </div>
     <div class="menu">
-      <button onclick="location.href='room-create.html'">AI戦</button>
-      <button onclick="location.href='room-create.html'">ルーム作成</button>
-      <button onclick="location.href='room-join.html'">ルーム参加</button>
+      <button onclick="goTo('room-create.html')">AI戦</button>
+      <button onclick="goTo('room-create.html')">ルーム作成</button>
+      <button onclick="goTo('room-join.html')">ルーム参加</button>
     </div>
     <div class="credit">Credit</div>
   </div>
+  <script>
+    function goTo(url) {
+      const input = document.getElementById('playerNameInput');
+      const name = input.value.trim() || input.placeholder;
+      localStorage.setItem('playerName', name);
+      location.href = url;
+    }
+  </script>
 </body>
 </html>

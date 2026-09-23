@@ -51,6 +51,31 @@
   .drawer-select-row { display:flex; gap:8px; align-items:center; }
   .drawer-select-row select { flex:1; background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px; border-radius:4px; }
   .drawer-exchange-btn { background:#b91c1c33; border:1px solid #b91c1c; color:#eee; padding:8px 16px; border-radius:4px; cursor:pointer; }
+
+  .action-bar { position:absolute; bottom:16px; right:16px; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; z-index:5; }
+  .action-btn { background:#1a1a1a; border:1px solid #666; color:#eee; padding:12px 16px; border-radius:6px; cursor:pointer; font-size:13px; white-space:nowrap; }
+  .action-btn:disabled { opacity:.35; cursor:not-allowed; }
+  .action-btn.raise { border-color:#e0a752; color:#e0a752; }
+  .action-btn.fold { border-color:#3b4d9e; color:#6f83e0; background:#151a33; }
+  .action-btn.allin { border-color:#d4b400; color:#e6c700; background:#2a2408; }
+  .action-btn.lostin { border-color:#5a0a0a; color:#c93a3a; background:#220505; font-weight:bold; }
+
+  .center-modal-overlay { display:none; position:absolute; inset:0; background:#000000aa; align-items:center; justify-content:center; z-index:20; }
+  .center-modal-overlay.open { display:flex; }
+  .center-modal { background:#141414; border:1px solid #b91c1c; border-radius:10px; padding:22px; width:280px; text-align:center; }
+  .center-modal p { font-size:14px; margin:0 0 18px; line-height:1.6; }
+  .center-modal-actions { display:flex; gap:8px; }
+  .center-modal-actions button { flex:1; padding:10px; border-radius:6px; cursor:pointer; background:#1a1a1a; border:1px solid #666; color:#eee; }
+  .center-modal-actions button.confirm-yes { border-color:#b91c1c; color:#e05252; }
+
+  .raise-modal { background:#141414; border:1px solid #e0a752; border-radius:10px; padding:22px; width:280px; }
+  .raise-modal h3 { margin:0 0 16px; color:#e0a752; font-size:15px; }
+  .raise-modal label { font-size:12px; color:#999; display:block; margin-bottom:6px; }
+  .raise-modal input { width:100%; box-sizing:border-box; background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px 10px; border-radius:4px; font-size:16px; }
+  .raise-modal .range-note { font-size:11px; color:#777; margin-top:6px; }
+  .raise-modal-actions { display:flex; gap:8px; margin-top:18px; }
+  .raise-modal-actions button { flex:1; padding:10px; border-radius:6px; cursor:pointer; background:#1a1a1a; border:1px solid #666; color:#eee; }
+  .raise-modal-actions button.confirm { border-color:#e0a752; color:#e0a752; }
 </style>
 </head>
 <body>
@@ -108,6 +133,38 @@
 
     <div class="exchange-tab" onclick="openExchange()">換金へ</div>
 
+    <div class="action-bar">
+      <button class="action-btn" id="btnCheck" onclick="doCheck()">チェック</button>
+      <button class="action-btn raise" id="btnRaise" onclick="openRaise()">レイズ</button>
+      <button class="action-btn" id="btnCall" onclick="doCall()">コール</button>
+      <button class="action-btn allin" id="btnAllin" onclick="confirmAction('allin')">オールイン</button>
+      <button class="action-btn lostin" id="btnLostin" onclick="confirmAction('lostin')">ロストイン</button>
+      <button class="action-btn fold" id="btnFold" onclick="confirmAction('fold')">フォールド</button>
+    </div>
+
+    <div class="center-modal-overlay" id="confirmOverlay">
+      <div class="center-modal">
+        <p id="confirmMessage">本当にフォールドしますか?</p>
+        <div class="center-modal-actions">
+          <button onclick="closeConfirm()">キャンセル</button>
+          <button class="confirm-yes" onclick="executeConfirmedAction()">実行</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="center-modal-overlay" id="raiseOverlay">
+      <div class="raise-modal">
+        <h3>レイズ</h3>
+        <label>レイズする量</label>
+        <input type="number" id="raiseAmount" value="900" step="10">
+        <div class="range-note">最大 <span id="raiseMax">1800</span>(現在のBETの2倍まで)</div>
+        <div class="raise-modal-actions">
+          <button onclick="closeRaise()">キャンセル</button>
+          <button class="confirm" onclick="confirmRaise()">確定</button>
+        </div>
+      </div>
+    </div>
+
     <div class="drawer-overlay" id="drawerOverlay" onclick="closeExchange()"></div>
     <div class="exchange-drawer" id="exchangeDrawer">
       <div class="drawer-close" onclick="closeExchange()">戻る</div>
@@ -149,6 +206,80 @@
     function closeExchange() {
       document.getElementById('exchangeDrawer').classList.remove('open');
       document.getElementById('drawerOverlay').classList.remove('open');
+    }
+
+    // --- アクションボタンの状態管理 ---
+    // currentBet: 現在のラウンドでの最高ベット額 / myBet: 自分がこのラウンドで既に出している額
+    // myBet < currentBet の場合「レイズが来ている(コール可能・チェック不可)」状態
+    let currentBet = 900;
+    let myBet = 900;
+
+    function updateActionButtons() {
+      const raisePending = myBet < currentBet;
+      document.getElementById('btnCheck').disabled = raisePending;
+      document.getElementById('btnCall').disabled = !raisePending;
+    }
+    updateActionButtons();
+
+    function doCheck() {
+      if (document.getElementById('btnCheck').disabled) return;
+      // チェック処理(次のプレイヤーへターンを渡す想定)
+    }
+    function doCall() {
+      if (document.getElementById('btnCall').disabled) return;
+      myBet = currentBet;
+      updateActionButtons();
+    }
+
+    // --- レイズパネル ---
+    function openRaise() {
+      const max = currentBet * 2;
+      const input = document.getElementById('raiseAmount');
+      input.max = max;
+      input.value = Math.min(Number(input.value) || currentBet, max);
+      document.getElementById('raiseMax').textContent = max;
+      document.getElementById('raiseOverlay').classList.add('open');
+    }
+    function closeRaise() {
+      document.getElementById('raiseOverlay').classList.remove('open');
+    }
+    function confirmRaise() {
+      let amount = Number(document.getElementById('raiseAmount').value);
+      const max = currentBet * 2;
+      if (amount > max) amount = max;
+      if (amount < 0) amount = 0;
+      currentBet = amount;
+      myBet = amount;
+      updateActionButtons();
+      closeRaise();
+    }
+
+    // --- フォールド・オールイン・ロストインの再確認 ---
+    const confirmMessages = {
+      fold: '本当にフォールドしますか?',
+      allin: '本当にオールインしますか?',
+      lostin: '本当にロストインしますか?(残りの身体パーツを全て失います)'
+    };
+    let pendingAction = null;
+
+    function confirmAction(action) {
+      pendingAction = action;
+      document.getElementById('confirmMessage').textContent = confirmMessages[action];
+      document.getElementById('confirmOverlay').classList.add('open');
+    }
+    function closeConfirm() {
+      pendingAction = null;
+      document.getElementById('confirmOverlay').classList.remove('open');
+    }
+    function executeConfirmedAction() {
+      if (pendingAction === 'fold') {
+        // フォールド処理
+      } else if (pendingAction === 'allin') {
+        // オールイン処理
+      } else if (pendingAction === 'lostin') {
+        // ロストイン処理(赤札提示フローへ)
+      }
+      closeConfirm();
     }
 
     (function() {

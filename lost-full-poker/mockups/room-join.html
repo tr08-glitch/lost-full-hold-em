@@ -22,7 +22,7 @@
       <button onclick="pressKey('1')">1</button><button onclick="pressKey('2')">2</button><button onclick="pressKey('3')">3</button>
       <button onclick="pressKey('4')">4</button><button onclick="pressKey('5')">5</button><button onclick="pressKey('6')">6</button>
       <button onclick="pressKey('7')">7</button><button onclick="pressKey('8')">8</button><button onclick="pressKey('9')">9</button>
-      <button class="clear" onclick="clearCode()">クリア</button><button onclick="pressKey('0')">0</button><button class="confirm" onclick="location.href='room-create.html'">決定</button>
+      <button class="clear" onclick="clearCode()">クリア</button><button onclick="pressKey('0')">0</button><button class="confirm" onclick="joinRoom()">決定</button>
     </div>
     <div class="actions">
       <button class="back" onclick="location.href='title.html'">戻る</button>
@@ -40,6 +40,10 @@
     }
     function render() {
       document.getElementById('codeDisplay').textContent = (code + '____').slice(0, 4);
+    }
+    function joinRoom() {
+      localStorage.setItem('joiningRoom', 'true');
+      location.href = 'room-create.html';
     }
 
     (function() {
