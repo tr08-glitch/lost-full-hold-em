@@ -8,11 +8,13 @@
   .screen { display:flex; height:100vh; box-sizing:border-box; padding:24px; gap:24px; }
   .left { width:40%; display:flex; flex-direction:column; gap:14px; }
   .right { flex:1; background:#141414; border:1px solid #333; border-radius:8px; padding:16px; position:relative; }
-  .room-id { font-size:22px; letter-spacing:4px; color:#b91c1c; }
+  .room-id { font-size:20px; letter-spacing:2px; color:#b91c1c; word-break:break-all; }
+  .room-id .label { font-size:11px; color:#999; letter-spacing:0; display:block; margin-bottom:2px; }
   label { font-size:12px; color:#999; display:block; margin-bottom:4px; }
   select, input { background:#1a1a1a; border:1px solid #444; color:#eee; padding:6px 10px; border-radius:4px; width:100%; box-sizing:border-box; }
   .gm-only { border:1px dashed #b91c1c; padding:8px; border-radius:4px; }
   .gm-only span { font-size:10px; color:#b91c1c; }
+  body.role-participant .gm-only { display:none; }
   button { background:#1a1a1a; border:1px solid #666; color:#eee; padding:10px; border-radius:6px; cursor:pointer; }
   button:disabled { opacity:0.4; cursor:not-allowed; }
   .primary { border-color:#b91c1c; }
@@ -34,22 +36,25 @@
   .chat-input-row { display:flex; gap:6px; margin-top:8px; }
   .chat-input-row input { flex:1; }
   .chat-send-btn { flex-shrink:0; padding:8px 14px; }
+  .status-line { font-size:12px; color:#777; }
 </style>
 </head>
 <body>
   <div class="screen">
     <div class="left">
-      <div class="room-id">ROOM: 4821</div>
+      <div class="room-id"><span class="label">ROOM CODE</span><span id="roomIdText">接続中…</span></div>
 
       <div class="gm-only">
         <span>GMのみ表示</span>
-        <button onclick="document.getElementById('settingsModal').style.display='flex'" style="width:100%;">ゲーム設定</button>
+        <button onclick="openSettings()" style="width:100%;">ゲーム設定</button>
       </div>
 
+      <div class="status-line" id="statusLine"></div>
+
       <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
-        <div class="gm-only"><span>GMのみ表示</span><button id="startBtn" class="primary" style="width:100%;" onclick="location.href='table.html'">ゲーム開始</button></div>
-        <button onclick="location.href='title.html'">ルームから抜ける</button>
-        <div class="gm-only"><span>GMのみ表示</span><button style="width:100%;" onclick="location.href='title.html'">ルーム解散</button></div>
+        <div class="gm-only"><span>GMのみ表示</span><button id="startBtn" class="primary" style="width:100%;" onclick="startGame()" disabled>ゲーム開始</button></div>
+        <button onclick="leaveRoom()">ルームから抜ける</button>
+        <div class="gm-only"><span>GMのみ表示</span><button style="width:100%;" onclick="leaveRoom()">ルーム解散</button></div>
       </div>
     </div>
 
@@ -57,16 +62,14 @@
       <div class="player-box">
         <div class="top-icons">📖 ⚙</div>
         <label>参加プレイヤー</label>
-        <ul class="players" id="playerList">
-          <li>プレイヤー1(GM)</li>
-        </ul>
+        <ul class="players" id="playerList"></ul>
       </div>
 
       <div class="chat-box">
-        <label>チャット</label>
+        <label>チャット(未実装:表示のみ)</label>
         <div style="flex:1;"></div>
         <div class="chat-input-row">
-          <select style="width:100px;"><option>全体</option><option>プレイヤー2</option></select>
+          <select style="width:100px;"><option>全体</option></select>
           <input type="text" placeholder="チャット入力">
           <button class="chat-send-btn primary">送信</button>
         </div>
@@ -79,15 +82,18 @@
       <h3>ゲーム設定</h3>
       <div class="modal-row">
         <label>モード</label>
-        <select><option>ノーマル</option><option selected>ロストフル</option></select>
+        <select id="modeSelect">
+          <option value="normal">ノーマル</option>
+          <option value="lostfull" selected>ロストフル</option>
+        </select>
       </div>
       <div class="modal-row">
         <label>初期チップ</label>
-        <input type="number" value="1000">
+        <input type="number" id="startingChipsInput" value="1000">
       </div>
       <div class="modal-row">
         <label>ラウンド数</label>
-        <input type="number" value="10">
+        <input type="number" id="maxRoundsInput" value="10">
       </div>
       <div class="modal-row">
         <label>ビッグブラインドの金額</label>
@@ -99,56 +105,130 @@
         <label>ジョーカーの枚数</label>
         <input type="number" id="jokerCount" value="2" min="1" max="4" disabled>
       </div>
+      <div style="font-size:10px; color:#666; margin:-6px 0 12px;">※ジョーカー設定は未実装のため、現時点では反映されません</div>
       <div class="toggle-row"><span>他プレイヤーの赤札推定額を表示</span><input type="checkbox" checked></div>
       <div class="toggle-row"><span>他プレイヤーのチップ額を表示</span><input type="checkbox" checked></div>
       <div class="toggle-row"><span>他プレイヤーのBET額を表示</span><input type="checkbox" checked></div>
       <div class="modal-actions">
-        <button onclick="document.getElementById('settingsModal').style.display='none'">キャンセル</button>
-        <button class="primary" onclick="document.getElementById('settingsModal').style.display='none'">確定</button>
+        <button onclick="closeSettings()">キャンセル</button>
+        <button class="primary" onclick="confirmSettings()">確定</button>
       </div>
     </div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.24/dist/colyseus.js"></script>
+  <script src="js/lfh-client.js"></script>
   <script>
-    function applyPlayerName() {
-      const name = localStorage.getItem('playerName') || 'プレイヤー1';
-      const isJoining = localStorage.getItem('joiningRoom') === 'true';
+    let room = null;
+    let navigatedToTable = false;
+
+    (function applyRole() {
+      const isGM = localStorage.getItem('isGM') === 'true';
+      if (!isGM) document.body.classList.add('role-participant');
+    })();
+
+    function openSettings() {
+      if (room && room.state) {
+        document.getElementById('modeSelect').value = room.state.mode;
+        document.getElementById('startingChipsInput').value = room.state.startingChips;
+        document.getElementById('maxRoundsInput').value = room.state.maxRounds;
+        document.getElementById('bbAmount').value = room.state.bigBlind;
+        document.getElementById('sbAmount').textContent = room.state.smallBlind;
+      }
+      document.getElementById('settingsModal').style.display = 'flex';
+    }
+    function closeSettings() {
+      document.getElementById('settingsModal').style.display = 'none';
+    }
+    function confirmSettings() {
+      if (room) {
+        room.send('updateSettings', {
+          mode: document.getElementById('modeSelect').value,
+          startingChips: Number(document.getElementById('startingChipsInput').value),
+          maxRounds: Number(document.getElementById('maxRoundsInput').value),
+          bigBlind: Number(document.getElementById('bbAmount').value),
+        });
+      }
+      closeSettings();
+    }
+
+    function renderPlayers() {
       const list = document.getElementById('playerList');
       list.innerHTML = '';
-
-      if (isJoining) {
-        // ルーム参加経由:既存のGM(プレイヤー1)+自分(参加者)の2人を表示
-        const gmLi = document.createElement('li');
-        gmLi.textContent = 'プレイヤー1(GM)';
-        list.appendChild(gmLi);
-
-        const meLi = document.createElement('li');
-        meLi.textContent = name;
-        list.appendChild(meLi);
-
-        localStorage.removeItem('joiningRoom');
-      } else {
-        // ルーム作成経由:自分がGMとして1人だけ表示
+      if (!room) return;
+      const players = [];
+      room.state.players.forEach((p) => players.push(p));
+      players.sort((a, b) => a.seatIndex - b.seatIndex);
+      players.forEach((p) => {
         const li = document.createElement('li');
-        li.textContent = name + '(GM)';
+        li.textContent = p.name + (p.isGM ? '(GM)' : '') + (p.connected ? '' : '(切断中)');
         list.appendChild(li);
-      }
-    }
-    applyPlayerName();
+      });
 
-    function updateStartButton() {
-      const count = document.getElementById('playerList').children.length;
-      const btn = document.getElementById('startBtn');
-      btn.disabled = count < 2;
-      btn.title = count < 2 ? 'プレイヤーが2人以上必要です' : '';
-    }
-    updateStartButton();
+      const startBtn = document.getElementById('startBtn');
+      const me = room.state.players.get(room.sessionId);
+      const isGM = !!(me && me.isGM);
+      startBtn.disabled = !isGM || players.length < 2;
+      startBtn.title = players.length < 2 ? 'プレイヤーが2人以上必要です' : '';
 
-    (function() {
-      const nav = performance.getEntriesByType('navigation')[0];
-      if (nav && nav.type === 'reload') {
+      document.getElementById('statusLine').textContent =
+        `モード: ${room.state.mode === 'lostfull' ? 'ロストフル' : 'ノーマル'} / 初期チップ: ${room.state.startingChips} / ラウンド数: ${room.state.maxRounds} / BB: ${room.state.bigBlind}(SB: ${room.state.smallBlind})`;
+    }
+
+    function startGame() {
+      if (room) room.send('startGame');
+    }
+
+    function leaveRoom() {
+      if (room) room.leave(true); // consented=true(明示的な退室)
+      LFH.clearSession();
+      location.href = 'title.html';
+    }
+
+    function goToTable() {
+      if (navigatedToTable) return;
+      navigatedToTable = true;
+      location.href = 'table.html';
+    }
+
+    async function init() {
+      try {
+        // まず既存セッションへの復帰を試みる(GM・参加者どちらの場合も、
+        // room-join.html経由で既に接続済み、またはこのページ自体のリロードならここで復帰する)
+        room = await LFH.reconnectRoom();
+        if (!room) {
+          // 復帰対象のセッションが無い = title.htmlから初めて来た(GMとして新規作成)
+          const name = localStorage.getItem('playerName') || 'プレイヤー1';
+          room = await LFH.createRoom({
+            name,
+            mode: document.getElementById('modeSelect').value,
+            startingChips: Number(document.getElementById('startingChipsInput').value),
+            maxRounds: Number(document.getElementById('maxRoundsInput').value),
+            bigBlind: Number(document.getElementById('bbAmount').value),
+          });
+        }
+      } catch (e) {
+        console.error(e);
+        alert('ルームへの接続に失敗しました。タイトルに戻ります。');
         location.href = 'title.html';
+        return;
       }
-    })();
+
+      document.getElementById('roomIdText').textContent = room.roomId;
+
+      room.onStateChange(() => {
+        renderPlayers();
+        if (room.state.gameStarted) goToTable();
+      });
+
+      room.onLeave(() => {
+        // サーバー側から切断された場合(ルーム消滅など)
+        if (!navigatedToTable) {
+          LFH.clearSession();
+        }
+      });
+    }
+    init();
   </script>
 </body>
 </html>

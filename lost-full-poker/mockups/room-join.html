@@ -5,48 +5,63 @@
 <title>ロストフルホールデム - ルーム参加</title>
 <style>
   body { margin:0; font-family: "Hiragino Sans", sans-serif; background:#0a0a0a; color:#e5e5e5; display:flex; align-items:center; justify-content:center; height:100vh; }
-  .panel { background:#141414; border:1px solid #333; border-radius:10px; padding:24px; width:280px; text-align:center; }
-  .code-display { font-size:28px; letter-spacing:8px; background:#1a1a1a; border:1px solid #444; border-radius:6px; padding:10px; margin-bottom:16px; min-height:20px; }
-  .keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
-  .keypad button { background:#1a1a1a; border:1px solid #444; color:#eee; padding:14px; font-size:16px; border-radius:6px; cursor:pointer; }
+  .panel { background:#141414; border:1px solid #333; border-radius:10px; padding:24px; width:300px; text-align:center; }
+  .code-input { width:100%; box-sizing:border-box; font-size:20px; letter-spacing:2px; text-align:center; background:#1a1a1a; border:1px solid #444; color:#eee; border-radius:6px; padding:12px; margin-bottom:8px; }
+  .hint { font-size:11px; color:#777; margin-bottom:16px; }
+  .error { font-size:12px; color:#e05252; min-height:16px; margin-bottom:8px; }
   .actions { display:flex; flex-direction:column; gap:8px; }
-  .actions button { padding:10px; border-radius:6px; cursor:pointer; }
+  .actions button { padding:12px; border-radius:6px; cursor:pointer; font-size:14px; }
   .confirm { background:#b91c1c33; border:1px solid #b91c1c; color:#eee; }
-  .clear, .back { background:#1a1a1a; border:1px solid #666; color:#eee; }
+  .confirm:disabled { opacity:0.4; cursor:not-allowed; }
+  .back { background:#1a1a1a; border:1px solid #666; color:#eee; }
 </style>
 </head>
 <body>
   <div class="panel">
-    <div class="code-display" id="codeDisplay">____</div>
-    <div class="keypad">
-      <button onclick="pressKey('1')">1</button><button onclick="pressKey('2')">2</button><button onclick="pressKey('3')">3</button>
-      <button onclick="pressKey('4')">4</button><button onclick="pressKey('5')">5</button><button onclick="pressKey('6')">6</button>
-      <button onclick="pressKey('7')">7</button><button onclick="pressKey('8')">8</button><button onclick="pressKey('9')">9</button>
-      <button class="clear" onclick="clearCode()">クリア</button><button onclick="pressKey('0')">0</button><button class="confirm" onclick="joinRoom()">決定</button>
-    </div>
+    <label style="font-size:12px;color:#999;display:block;margin-bottom:6px;">ルームコード</label>
+    <input type="text" class="code-input" id="codeInput" placeholder="例: a1b2c3">
+    <div class="hint">ルーム作成者から共有されたコードを入力してください</div>
+    <div class="error" id="errorMsg"></div>
     <div class="actions">
+      <button class="confirm" id="joinBtn" onclick="joinRoom()">参加する</button>
       <button class="back" onclick="location.href='title.html'">戻る</button>
     </div>
   </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.24/dist/colyseus.js"></script>
+  <script src="js/lfh-client.js"></script>
   <script>
-    let code = '';
-    function pressKey(n) {
-      if (code.length < 4) code += n;
-      render();
-    }
-    function clearCode() {
-      code = '';
-      render();
-    }
-    function render() {
-      document.getElementById('codeDisplay').textContent = (code + '____').slice(0, 4);
-    }
-    function joinRoom() {
-      localStorage.setItem('joiningRoom', 'true');
-      location.href = 'room-create.html';
+    const codeInput = document.getElementById('codeInput');
+    const joinBtn = document.getElementById('joinBtn');
+    const errorMsg = document.getElementById('errorMsg');
+
+    codeInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') joinRoom();
+    });
+
+    async function joinRoom() {
+      const code = codeInput.value.trim();
+      if (!code) {
+        errorMsg.textContent = 'コードを入力してください';
+        return;
+      }
+
+      const name = localStorage.getItem('playerName') || 'プレイヤー1';
+      joinBtn.disabled = true;
+      errorMsg.textContent = '';
+
+      try {
+        await LFH.joinRoom(code, { name });
+        localStorage.setItem('isGM', 'false');
+        location.href = 'room-create.html';
+      } catch (e) {
+        console.error(e);
+        errorMsg.textContent = 'ルームが見つからないか、既にゲームが開始されています';
+        joinBtn.disabled = false;
+      }
     }
 
-    (function() {
+    (function () {
       const nav = performance.getEntriesByType('navigation')[0];
       if (nav && nav.type === 'reload') {
         location.href = 'title.html';

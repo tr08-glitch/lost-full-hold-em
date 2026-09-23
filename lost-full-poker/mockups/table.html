@@ -10,15 +10,27 @@
   .round-box { position:absolute; top:16px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:13px; }
   .round-box .val { color:#b91c1c; font-size:18px; font-weight:bold; }
 
-  .opponents { position:absolute; top:16px; left:160px; right:70px; display:flex; gap:16px; }
-  .opponent { flex:1; max-width:180px; background:#141414; border:1px solid #333; border-radius:6px; padding:10px; text-align:center; }
+  .opponents { position:absolute; top:16px; left:160px; right:16px; display:flex; gap:16px; }
+  .opponent { flex:1; max-width:180px; background:#141414; border:1px solid #333; border-radius:6px; padding:10px; text-align:center; position:relative; }
   .opponent .name { font-size:12px; color:#999; margin-bottom:6px; }
   .opponent .cards { height:70px; border:1px dashed #333; border-radius:4px; margin-bottom:8px; }
   .opponent .stat-line { font-size:11px; background:#1a1a1a; border:1px solid #333; border-radius:4px; padding:3px 6px; margin-top:4px; }
   .opponent .stat-line.red { color:#e05252; }
 
+  .position-badge { position:absolute; top:-10px; right:-10px; min-width:26px; height:20px; padding:0 6px; border-radius:10px; background:#f0d060; color:#1a1a00; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 0 6px #000000aa; z-index:2; white-space:nowrap; }
+
+  .game-log { position:absolute; bottom:212px; left:16px; width:220px; max-height:110px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 10px; font-size:11px; color:#aaa; overflow-y:auto; z-index:3; }
+  .game-log .log-title { color:#777; font-size:10px; margin-bottom:4px; }
+  .game-log .log-line { margin-bottom:3px; line-height:1.4; }
+
+  .top-right-actions { position:absolute; top:16px; right:16px; display:flex; gap:8px; z-index:5; }
+  .top-right-actions button { background:#1a1a1a; border:1px solid #666; color:#ccc; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
+  .top-right-actions button.surrender { border-color:#b91c1c; color:#e05252; }
+
   .hand-area { position:absolute; bottom:120px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:flex-end; }
-  .hand-card { width:60px; height:90px; background:#1a1a1a; border:1px solid #666; border-radius:6px; }
+  .hand-card { width:60px; height:90px; background:#fdfdfd; border:1px solid #666; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:bold; font-size:20px; color:#1a1a1a; }
+  .hand-card.red { color:#c92a2a; }
+  .hand-card .suit { font-size:22px; margin-top:2px; }
   .hand-label { position:absolute; bottom:90px; left:50%; transform:translateX(-50%); font-size:11px; color:#888; }
 
   .self-panel { position:absolute; bottom:16px; left:16px; background:#141414; border:1px solid #b91c1c; border-radius:8px; padding:12px; width:220px; }
@@ -30,7 +42,9 @@
 
   .community-area { position:absolute; top:48%; left:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:24px; }
   .community-cards { display:flex; gap:6px; }
-  .community-card { width:48px; height:72px; background:#1a1a1a; border:1px solid #555; border-radius:5px; }
+  .community-card { width:48px; height:72px; background:#1a1a1a; border:1px solid #555; border-radius:5px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:bold; font-size:15px; color:#eee; }
+  .community-card.red { color:#e05252; }
+  .community-card .suit { font-size:15px; margin-top:1px; }
   .deck-box { width:48px; height:72px; background:#1a1a1a; border:1px solid #b91c1c; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#e05252; text-align:center; }
 
   .used-box { width:48px; height:72px; background:#1a1a1a; border:1px dashed #555; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#777; text-align:center; }
@@ -40,16 +54,23 @@
   .drawer-overlay { position:absolute; inset:0; background:#000000aa; opacity:0; pointer-events:none; transition:opacity .25s; z-index:8; }
   .drawer-overlay.open { opacity:1; pointer-events:auto; }
 
-  .exchange-drawer { position:absolute; top:0; right:0; height:100%; width:340px; max-width:88%; background:#141414; border-left:1px solid #b91c1c; box-shadow:-8px 0 24px #000000aa; transform:translateX(100%); transition:transform .3s ease; z-index:9; padding:20px; box-sizing:border-box; }
+  .exchange-drawer { position:absolute; top:0; right:0; height:100%; width:340px; max-width:88%; background:#141414; border-left:1px solid #b91c1c; box-shadow:-8px 0 24px #000000aa; transform:translateX(100%); transition:transform .3s ease; z-index:9; padding:20px; box-sizing:border-box; overflow-y:auto; }
   .exchange-drawer.open { transform:translateX(0); }
   .drawer-close { position:absolute; top:12px; left:12px; cursor:pointer; color:#ccc; font-size:13px; border:1px solid #666; border-radius:4px; padding:4px 10px; }
   .drawer-note { font-size:11px; color:#888; text-align:right; line-height:1.6; margin-bottom:8px; }
-  .drawer-figure { width:150px; height:200px; margin:40px auto 16px; border:1px dashed #444; border-radius:8px; display:flex; align-items:center; justify-content:center; }
-  .drawer-figure svg { width:90px; height:160px; }
-  .drawer-figure svg .lost { fill:#000; stroke:#000; }
-  .drawer-figure svg .ok { fill:none; stroke:#e5e5e5; stroke-width:3; }
+  .drawer-figure { width:170px; height:250px; margin:36px auto 12px; }
+  .drawer-figure svg { width:100%; height:100%; }
+  .drawer-base-fill { fill:#cfcfcf; }
+  .drawer-base-line { stroke:#cfcfcf; }
+  .drawer-part { fill:#cfcfcf; stroke:#8a8a8a; stroke-width:1.5; transition:fill .15s, stroke .15s; }
+  .drawer-part-line { stroke:#cfcfcf; transition:stroke .15s; fill:none; }
+  .drawer-part.lost { fill:#000; stroke:#000; }
+  .drawer-part-line.lost { stroke:#000; }
+  .drawer-part.highlight { stroke:#b91c1c; stroke-width:2.5; }
+  .drawer-part-line.highlight { stroke:#b91c1c; }
   .drawer-select-row { display:flex; gap:8px; align-items:center; }
   .drawer-select-row select { flex:1; background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px; border-radius:4px; }
+  .drawer-legend { font-size:10px; color:#777; margin-top:10px; text-align:center; }
   .drawer-exchange-btn { background:#b91c1c33; border:1px solid #b91c1c; color:#eee; padding:8px 16px; border-radius:4px; cursor:pointer; }
 
   .action-bar { position:absolute; bottom:16px; right:16px; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; z-index:5; }
@@ -81,22 +102,17 @@
 <body>
   <div class="screen">
     <div class="round-box">残りラウンド<br><span class="val">3</span></div>
+    <div class="round-box" id="lostInBanner" style="display:none; top:64px; border-color:#b91c1c; color:#e05252;"></div>
 
-    <div class="opponents">
-      <div class="opponent">
-        <div class="name">プレイヤー2</div>
-        <div class="cards"></div>
-        <div class="stat-line red">赤札(推定): 400</div>
-        <div class="stat-line">チップ: 1200</div>
-        <div class="stat-line">BET: 900</div>
-      </div>
-      <div class="opponent">
-        <div class="name">プレイヤー3</div>
-        <div class="cards"></div>
-        <div class="stat-line red">赤札(推定): 250</div>
-        <div class="stat-line">チップ: 850</div>
-        <div class="stat-line">BET: 900</div>
-      </div>
+    <div class="top-right-actions">
+      <button class="surrender" onclick="confirmAction('surrender')">降参</button>
+      <button onclick="confirmAction('leave')">退室</button>
+    </div>
+
+    <div class="opponents" id="opponentsArea"></div>
+
+    <div class="game-log" id="gameLog">
+      <div class="log-title">ゲームログ</div>
     </div>
 
     <div class="community-area">
@@ -113,21 +129,22 @@
 
     <div class="hand-label">ホールカード</div>
     <div class="hand-area">
-      <div class="hand-card"></div>
-      <div class="hand-card"></div>
+      <div class="hand-card" id="myCard1"></div>
+      <div class="hand-card" id="myCard2"></div>
     </div>
 
     <div class="self-panel">
-      <div class="name">プレイヤー1(自分)</div>
+      <div class="position-badge" id="selfPositionBadge" style="display:none;">BTN</div>
+      <div class="name" id="selfName">プレイヤー1(自分)</div>
       <div class="row">
         <div class="body-icon" title="換金画面へ" onclick="openExchange()">🩸</div>
-        <div class="red-note">赤札(推定): 700</div>
+        <div class="red-note" id="selfRedNote">赤札(推定): 0</div>
       </div>
       <div class="row">
-        <div class="stat">チップ: 700</div>
+        <div class="stat" id="selfChip">チップ: 1000</div>
       </div>
       <div class="row">
-        <div class="stat">BET: 900</div>
+        <div class="stat" id="selfBet">BET: 0</div>
       </div>
     </div>
 
@@ -156,8 +173,8 @@
       <div class="raise-modal">
         <h3>レイズ</h3>
         <label>レイズする量</label>
-        <input type="number" id="raiseAmount" value="900" step="10">
-        <div class="range-note">最大 <span id="raiseMax">1800</span>(現在のBETの2倍まで)</div>
+        <input type="number" id="raiseAmount" value="40" step="10">
+        <div class="range-note">最大 <span id="raiseMax">80</span>(現在のBETの2倍まで)</div>
         <div class="raise-modal-actions">
           <button onclick="closeRaise()">キャンセル</button>
           <button class="confirm" onclick="confirmRaise()">確定</button>
@@ -170,34 +187,80 @@
       <div class="drawer-close" onclick="closeExchange()">戻る</div>
       <div class="drawer-note">全体図<br>パーツの残を確認<br>(換金済みの部位は黒く表示)</div>
       <div class="drawer-figure">
-        <svg viewBox="0 0 100 180" xmlns="http://www.w3.org/2000/svg">
-          <circle class="ok" cx="50" cy="20" r="14"/>
-          <line class="ok" x1="50" y1="34" x2="50" y2="110"/>
-          <line class="ok" x1="50" y1="50" x2="15" y2="80"/>
-          <line class="ok" x1="50" y1="50" x2="85" y2="80"/>
-          <line class="lost" x1="15" y1="80" x2="8" y2="90" stroke-width="3"/>
-          <line class="ok" x1="50" y1="110" x2="25" y2="170"/>
-          <line class="ok" x1="50" y1="110" x2="75" y2="170"/>
+        <svg viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
+          <!-- 脚(換金対象外・常時通常色) -->
+          <line x1="88" y1="170" x2="82" y2="270" class="drawer-base-line" stroke-width="16" stroke-linecap="round"/>
+          <line x1="112" y1="170" x2="118" y2="270" class="drawer-base-line" stroke-width="16" stroke-linecap="round"/>
+
+          <!-- 胴体(換金対象外の土台) -->
+          <rect x="62" y="78" width="76" height="96" rx="22" class="drawer-base-fill"/>
+
+          <!-- 腕(左右) -->
+          <line id="d_armLeft" x1="64" y1="90" x2="32" y2="172" class="drawer-part-line" stroke-width="15" stroke-linecap="round"/>
+          <line id="d_armRight" x1="136" y1="90" x2="168" y2="172" class="drawer-part-line" stroke-width="15" stroke-linecap="round"/>
+
+          <!-- 手のひら(換金対象外の土台) -->
+          <circle cx="32" cy="176" r="10" class="drawer-base-fill"/>
+          <circle cx="168" cy="176" r="10" class="drawer-base-fill"/>
+
+          <!-- 指(左手5本) -->
+          <line id="d_fingerL1" x1="32" y1="176" x2="14" y2="163" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerL2" x1="32" y1="176" x2="9"  y2="172" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerL3" x1="32" y1="176" x2="9"  y2="182" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerL4" x1="32" y1="176" x2="13" y2="191" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerL5" x1="32" y1="176" x2="19" y2="197" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+
+          <!-- 指(右手5本) -->
+          <line id="d_fingerR1" x1="168" y1="176" x2="186" y2="163" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerR2" x1="168" y1="176" x2="191" y2="172" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerR3" x1="168" y1="176" x2="191" y2="182" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerR4" x1="168" y1="176" x2="187" y2="191" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerR5" x1="168" y1="176" x2="181" y2="197" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+
+          <!-- 頭部(換金対象外の土台) -->
+          <circle cx="100" cy="42" r="27" class="drawer-base-fill"/>
+
+          <!-- 耳(左右) -->
+          <ellipse id="d_earLeft"  cx="71" cy="44" rx="6" ry="10" class="drawer-part"/>
+          <ellipse id="d_earRight" cx="129" cy="44" rx="6" ry="10" class="drawer-part"/>
+
+          <!-- 目(左右) -->
+          <circle id="d_eyeLeft"  cx="90" cy="38" r="4.5" class="drawer-part"/>
+          <circle id="d_eyeRight" cx="110" cy="38" r="4.5" class="drawer-part"/>
+
+          <!-- 歯 -->
+          <rect id="d_teeth" x="87" y="55" width="26" height="8" rx="2" class="drawer-part"/>
+
+          <!-- 肺(左右) -->
+          <ellipse id="d_lungLeft"  cx="83" cy="112" rx="13" ry="20" class="drawer-part"/>
+          <ellipse id="d_lungRight" cx="117" cy="112" rx="13" ry="20" class="drawer-part"/>
+
+          <!-- 心臓 -->
+          <circle id="d_heart" cx="100" cy="118" r="9" class="drawer-part"/>
         </svg>
       </div>
       <div class="drawer-select-row">
-        <select>
-          <option>指</option>
-          <option>歯</option>
-          <option>耳(左)</option>
-          <option>耳(右)</option>
-          <option>肺(左)</option>
-          <option>肺(右)</option>
-          <option>目(左)</option>
-          <option>目(右)</option>
-          <option>腕(左)</option>
-          <option>腕(右)</option>
-          <option>心臓</option>
+        <select id="drawerPartSelect" onchange="highlightDrawerPart()">
+          <option value="指(左)">指(左)</option>
+          <option value="指(右)">指(右)</option>
+          <option value="歯">歯</option>
+          <option value="耳(左)">耳(左)</option>
+          <option value="耳(右)">耳(右)</option>
+          <option value="肺(左)">肺(左)</option>
+          <option value="肺(右)">肺(右)</option>
+          <option value="目(左)">目(左)</option>
+          <option value="目(右)">目(右)</option>
+          <option value="腕(左)">腕(左)</option>
+          <option value="腕(右)">腕(右)</option>
+          <option value="心臓">心臓</option>
         </select>
-        <button class="drawer-exchange-btn" onclick="closeExchange()">換金</button>
+        <button class="drawer-exchange-btn" id="drawerExchangeBtn" onclick="doDrawerExchange()">換金</button>
       </div>
+      <div class="drawer-legend">グレー=未換金 / 黒=換金済み(不可逆)</div>
     </div>
   </div>
+  <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.24/dist/colyseus.js"></script>
+  <script src="js/lfh-client.js"></script>
   <script>
     function openExchange() {
       document.getElementById('exchangeDrawer').classList.add('open');
@@ -208,61 +271,378 @@
       document.getElementById('drawerOverlay').classList.remove('open');
     }
 
-    // --- アクションボタンの状態管理 ---
-    // currentBet: 現在のラウンドでの最高ベット額 / myBet: 自分がこのラウンドで既に出している額
-    // myBet < currentBet の場合「レイズが来ている(コール可能・チェック不可)」状態
-    let currentBet = 900;
-    let myBet = 900;
+    // --- 身体パーツ換金:全体図の連動と赤札(推定換金金額)の同期 ---
+    // 実際の換金はサーバー(exchangeBodyPartメッセージ)に対して行い、見た目は
+    // room.stateの実データ(fingersLostLeftなど)から毎回再描画する(ローカルの仮state保持はしない)。
+    const PART_DEFS = {
+      "指(左)": { part: "finger", side: "left", value: 30 },
+      "指(右)": { part: "finger", side: "right", value: 30 },
+      "歯": { part: "tooth", value: 200, ids: ["d_teeth"] },
+      "耳(左)": { part: "ear", side: "left", value: 70, ids: ["d_earLeft"] },
+      "耳(右)": { part: "ear", side: "right", value: 70, ids: ["d_earRight"] },
+      "肺(左)": { part: "lung", side: "left", value: 150, ids: ["d_lungLeft"] },
+      "肺(右)": { part: "lung", side: "right", value: 150, ids: ["d_lungRight"] },
+      "目(左)": { part: "eye", side: "left", value: 250, ids: ["d_eyeLeft"] },
+      "目(右)": { part: "eye", side: "right", value: 250, ids: ["d_eyeRight"] },
+      // 腕は付随する指も同時に失うが、連鎖分の指にはチップ・赤札を加算しない(ルール通り、サーバー側で処理)
+      "腕(左)": { part: "arm", side: "left", value: 250, ids: ["d_armLeft", "d_fingerL1", "d_fingerL2", "d_fingerL3", "d_fingerL4", "d_fingerL5"] },
+      "腕(右)": { part: "arm", side: "right", value: 250, ids: ["d_armRight", "d_fingerR1", "d_fingerR2", "d_fingerR3", "d_fingerR4", "d_fingerR5"] },
+      "心臓": { part: "heart", value: 750, ids: ["d_heart"] }
+    };
+    const LEFT_FINGER_IDS = ["d_fingerL1", "d_fingerL2", "d_fingerL3", "d_fingerL4", "d_fingerL5"];
+    const RIGHT_FINGER_IDS = ["d_fingerR1", "d_fingerR2", "d_fingerR3", "d_fingerR4", "d_fingerR5"];
 
-    function updateActionButtons() {
-      const raisePending = myBet < currentBet;
-      document.getElementById('btnCheck').disabled = raisePending;
-      document.getElementById('btnCall').disabled = !raisePending;
+    function isPartAvailable(key, me) {
+      const def = PART_DEFS[key];
+      if (!def || !me) return false;
+      switch (def.part) {
+        case 'finger': return (def.side === 'left' ? me.fingersLostLeft : me.fingersLostRight) < 5;
+        case 'tooth': return !me.teethLost;
+        case 'ear': return !(def.side === 'left' ? me.earsLostLeft : me.earsLostRight);
+        case 'lung': return !(def.side === 'left' ? me.lungsLostLeft : me.lungsLostRight);
+        case 'eye': return !(def.side === 'left' ? me.eyesLostLeft : me.eyesLostRight);
+        case 'arm': return !(def.side === 'left' ? me.armsLostLeft : me.armsLostRight);
+        case 'heart': return !me.heartLost;
+        default: return false;
+      }
     }
-    updateActionButtons();
 
+    function computeRedNote(me) {
+      if (!me) return 0;
+      let total = 0;
+      total += (5 - me.fingersLostLeft) * 30 + (5 - me.fingersLostRight) * 30;
+      if (!me.teethLost) total += 200;
+      if (!me.earsLostLeft) total += 70;
+      if (!me.earsLostRight) total += 70;
+      if (!me.lungsLostLeft) total += 150;
+      if (!me.lungsLostRight) total += 150;
+      if (!me.eyesLostLeft) total += 250;
+      if (!me.eyesLostRight) total += 250;
+      if (!me.armsLostLeft) total += 250;
+      if (!me.armsLostRight) total += 250;
+      // 心臓はロストイン対象外のため合算しない(ルール通り)
+      return total;
+    }
+
+    function setPartLost(id, lost) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle('lost', !!lost);
+      if (lost) el.classList.remove('highlight');
+    }
+
+    function clearDrawerHighlight() {
+      document.querySelectorAll('.drawer-part.highlight, .drawer-part-line.highlight').forEach(el => el.classList.remove('highlight'));
+    }
+    function highlightDrawerPart() {
+      clearDrawerHighlight();
+      const key = document.getElementById('drawerPartSelect').value;
+      const def = PART_DEFS[key];
+      if (!def) return;
+      const ids = def.part === 'finger'
+        ? (def.side === 'left' ? LEFT_FINGER_IDS : RIGHT_FINGER_IDS)
+        : (def.ids || []);
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('lost')) el.classList.add('highlight');
+      });
+    }
+
+    // room.stateの実データを元に、全体図・赤札・プルダウンの有効/無効を再描画する
+    function renderBodyParts(me) {
+      if (!me) return;
+      LEFT_FINGER_IDS.forEach((id, i) => setPartLost(id, i < me.fingersLostLeft));
+      RIGHT_FINGER_IDS.forEach((id, i) => setPartLost(id, i < me.fingersLostRight));
+      setPartLost('d_teeth', me.teethLost);
+      setPartLost('d_earLeft', me.earsLostLeft);
+      setPartLost('d_earRight', me.earsLostRight);
+      setPartLost('d_lungLeft', me.lungsLostLeft);
+      setPartLost('d_lungRight', me.lungsLostRight);
+      setPartLost('d_eyeLeft', me.eyesLostLeft);
+      setPartLost('d_eyeRight', me.eyesLostRight);
+      setPartLost('d_armLeft', me.armsLostLeft);
+      setPartLost('d_armRight', me.armsLostRight);
+      setPartLost('d_heart', me.heartLost);
+
+      document.getElementById('selfRedNote').textContent = '赤札(推定): ' + computeRedNote(me);
+
+      const select = document.getElementById('drawerPartSelect');
+      Array.from(select.options).forEach(o => { o.disabled = !isPartAvailable(o.value, me); });
+      if (!isPartAvailable(select.value, me)) {
+        const nextOpt = Array.from(select.options).find(o => !o.disabled);
+        if (nextOpt) select.value = nextOpt.value;
+      }
+      document.getElementById('drawerExchangeBtn').disabled = !Array.from(select.options).some(o => !o.disabled);
+      highlightDrawerPart();
+    }
+
+    function doDrawerExchange() {
+      if (!room) return;
+      const select = document.getElementById('drawerPartSelect');
+      const key = select.value;
+      const def = PART_DEFS[key];
+      const me = room.state.players.get(room.sessionId);
+      if (!def || !isPartAvailable(key, me)) return;
+
+      const payload = { part: def.part };
+      if (def.side) payload.side = def.side;
+      room.send('exchangeBodyPart', payload);
+      // 実際の見た目の更新はroom.onStateChange経由のrenderBodyParts()で行われる
+    }
+    highlightDrawerPart();
+
+    // ================================================================
+    // ここから実サーバー連携(Colyseus)。以下は全てroom.stateからの描画と
+    // room.send()によるアクション送信で、ローカルの仮データは一切使わない。
+    // ================================================================
+    let room = null;
+    let renderedLogCount = 0;
+    let navigatedAway = false;
+
+    // ---------- カード表記ユーティリティ("As","Th"などrank+suitの2文字表記) ----------
+    const SUIT_INFO = {
+      s: { symbol: '♠', red: false },
+      c: { symbol: '♣', red: false },
+      h: { symbol: '♥', red: true },
+      d: { symbol: '♦', red: true }
+    };
+    function parseCard(code) {
+      const suit = code.slice(-1);
+      let rank = code.slice(0, -1);
+      if (rank === 'T') rank = '10';
+      return { rank: rank, suit: suit };
+    }
+    function renderCardEl(el, code) {
+      if (!el) return;
+      if (!code) { el.innerHTML = ''; el.classList.remove('red'); return; }
+      const c = parseCard(code);
+      const info = SUIT_INFO[c.suit] || { symbol: '', red: false };
+      el.innerHTML = '<div>' + c.rank + '</div><div class="suit">' + info.symbol + '</div>';
+      el.classList.toggle('red', info.red);
+    }
+    function miniCardHtml(code) {
+      const c = parseCard(code);
+      const info = SUIT_INFO[c.suit] || { symbol: '', red: false };
+      return '<div style="width:26px;height:38px;background:#fdfdfd;border:1px solid #666;border-radius:3px;' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:bold;' +
+        (info.red ? 'color:#c92a2a;' : 'color:#1a1a1a;') + '">' + c.rank +
+        '<span style="font-size:12px;line-height:1;">' + info.symbol + '</span></div>';
+    }
+
+    // ---------- 操作エラーの表示(サーバーからのactionErrorメッセージ用の簡易トースト) ----------
+    const actionErrorMessages = {
+      not_your_turn: '自分の番ではありません',
+      not_betting_phase: '今は操作できるタイミングではありません',
+      cannot_act: 'この操作はできません',
+      check_not_allowed: 'コールが必要なためチェックできません',
+      call_not_allowed: '今はコールできません',
+      invalid_raise_amount: 'レイズ額が正しくありません',
+      no_chips: 'チップが残っていません',
+      unknown_action_type: '不明な操作です',
+      arm_restricted: '腕を失っているため、チェック/コール以外は選択できません',
+      lostin_response_required: 'ロストインへの応答(コール/対抗ロストイン/フォールド)が必要です'
+    };
+    let toastTimer = null;
+    function showToast(message) {
+      let toast = document.getElementById('lfhToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'lfhToast';
+        toast.style.cssText = 'position:absolute;top:16px;left:50%;transform:translateX(-50%);' +
+          'background:#2a0808;border:1px solid #b91c1c;color:#f5b5b5;padding:8px 16px;border-radius:6px;' +
+          'font-size:12px;z-index:30;white-space:nowrap;';
+        document.querySelector('.screen').appendChild(toast);
+      }
+      toast.textContent = message;
+      toast.style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toast.style.display = 'none'; }, 2500);
+    }
+
+    // ---------- 描画 ----------
+    function render() {
+      if (!room || !room.state) return;
+      const state = room.state;
+      const me = state.players.get(room.sessionId);
+      if (!me) return;
+
+      document.querySelector('.round-box .val').textContent =
+        Math.max(0, state.maxRounds - state.roundNumber + 1);
+
+      renderOpponents(state);
+      renderSelfPanel(state, me);
+      renderCommunity(state);
+      renderLog(state);
+      renderActionButtons(state, me);
+      if (state.mode === 'lostfull') {
+        renderBodyParts(me);
+        renderLostInBanner(state);
+      }
+    }
+
+    function renderOpponents(state) {
+      const area = document.getElementById('opponentsArea');
+      area.innerHTML = '';
+      const others = [];
+      state.players.forEach(function (p, sessionId) {
+        if (sessionId !== room.sessionId) others.push(p);
+      });
+      others.sort(function (a, b) { return a.seatIndex - b.seatIndex; });
+
+      others.forEach(function (p) {
+        const statusNote = p.isDead ? '(死亡)' : p.isVegetative ? '(廃人)' :
+          p.folded ? '(フォールド)' : p.allIn ? '(オールイン)' : !p.connected ? '(切断中)' : '';
+        let cardsHtml = '';
+        if (p.revealedHoleCards.length === 2) {
+          cardsHtml = '<div style="display:flex;gap:4px;justify-content:center;">' +
+            miniCardHtml(p.revealedHoleCards[0]) + miniCardHtml(p.revealedHoleCards[1]) + '</div>';
+        }
+        const div = document.createElement('div');
+        div.className = 'opponent';
+        div.innerHTML =
+          (p.positionLabel ? '<div class="position-badge">' + p.positionLabel + '</div>' : '') +
+          '<div class="name">' + p.name + statusNote + '</div>' +
+          '<div class="cards">' + cardsHtml + '</div>' +
+          '<div class="stat-line">チップ: ' + p.chips + '</div>' +
+          '<div class="stat-line">BET: ' + p.currentBet + '</div>';
+        area.appendChild(div);
+      });
+    }
+
+    function renderSelfPanel(state, me) {
+      document.getElementById('selfName').textContent = me.name + '(自分)';
+
+      const badge = document.getElementById('selfPositionBadge');
+      if (me.positionLabel) {
+        badge.textContent = me.positionLabel;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+
+      document.getElementById('selfChip').textContent = 'チップ: ' + me.chips;
+      document.getElementById('selfBet').textContent = 'BET: ' + me.currentBet;
+
+      // ショーダウンで自分の手札が公開された場合はそちらを優先表示
+      if (me.revealedHoleCards.length === 2) {
+        renderCardEl(document.getElementById('myCard1'), me.revealedHoleCards[0]);
+        renderCardEl(document.getElementById('myCard2'), me.revealedHoleCards[1]);
+      }
+    }
+
+    function renderCommunity(state) {
+      const boxes = document.querySelectorAll('.community-card');
+      for (let i = 0; i < boxes.length; i++) {
+        renderCardEl(boxes[i], state.communityCards[i]);
+      }
+      document.querySelector('.deck-box').innerHTML = '山札<br>' + state.deckRemaining;
+      document.querySelector('.used-box').innerHTML = '使用済み<br>' + state.discardCount;
+    }
+
+    function renderLog(state) {
+      const box = document.getElementById('gameLog');
+      const lines = Array.from(state.log);
+      if (lines.length === renderedLogCount) return;
+      for (let i = renderedLogCount; i < lines.length; i++) {
+        const el = document.createElement('div');
+        el.className = 'log-line';
+        el.textContent = lines[i];
+        box.appendChild(el);
+      }
+      renderedLogCount = lines.length;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function renderActionButtons(state, me) {
+      const bettingPhase = ['preflop', 'flop', 'turn', 'river'].indexOf(state.phase) !== -1;
+      const isMyTurn = state.actionPlayerId === room.sessionId;
+      const canAct = isMyTurn && bettingPhase && !me.folded && !me.allIn &&
+        !me.isDead && !me.isVegetative && !me.isBusted && !me.isSurrendered;
+      const armRestricted = !!(me.armsLostLeft || me.armsLostRight);
+
+      if (state.lostInActive) {
+        // ロストイン応答フェーズ:選択肢はコール(赤札を支払う)・対抗ロストイン・フォールドのみ
+        document.getElementById('btnCheck').disabled = true;
+        document.getElementById('btnRaise').disabled = true;
+        document.getElementById('btnAllin').disabled = true;
+        document.getElementById('btnCall').disabled = !canAct;
+        document.getElementById('btnFold').disabled = !canAct || armRestricted;
+        document.getElementById('btnLostin').disabled = !canAct; // 腕を失っていても対抗ロストインは可能
+      } else {
+        const raisePending = me.currentBet < state.currentBet;
+        document.getElementById('btnCheck').disabled = !canAct || raisePending;
+        document.getElementById('btnCall').disabled = !canAct || !raisePending;
+        document.getElementById('btnRaise').disabled = !canAct || me.chips <= 0 || armRestricted;
+        document.getElementById('btnAllin').disabled = !canAct || me.chips <= 0 || armRestricted;
+        document.getElementById('btnFold').disabled = !canAct || armRestricted;
+        document.getElementById('btnLostin').disabled = !canAct; // 腕を失っていてもロストインの宣言は可能
+      }
+    }
+
+    function renderLostInBanner(state) {
+      const banner = document.getElementById('lostInBanner');
+      if (!state.lostInActive) { banner.style.display = 'none'; return; }
+      const declarer = state.players.get(state.lostInDeclarerId);
+      const name = declarer ? declarer.name : '???';
+      banner.innerHTML = 'ロストイン進行中<br>' + name + ' 赤札: ' + state.lostInAmount;
+      banner.style.display = '';
+    }
+
+    // ---------- アクション送信 ----------
     function doCheck() {
       if (document.getElementById('btnCheck').disabled) return;
-      // チェック処理(次のプレイヤーへターンを渡す想定)
+      room.send('action', { type: 'check' });
     }
     function doCall() {
       if (document.getElementById('btnCall').disabled) return;
-      myBet = currentBet;
-      updateActionButtons();
+      room.send('action', { type: 'call' });
     }
 
-    // --- レイズパネル ---
+    // ---------- レイズパネル ----------
     function openRaise() {
-      const max = currentBet * 2;
+      if (document.getElementById('btnRaise').disabled) return;
+      const state = room.state;
+      const me = state.players.get(room.sessionId);
+      const currentBet = state.currentBet;
+      const minRaiseTo = currentBet > 0 ? currentBet + state.minRaiseUnit : state.minRaiseUnit;
+      const maxRaiseTo = currentBet > 0 ? currentBet * 2 : (me.currentBet + me.chips);
+
       const input = document.getElementById('raiseAmount');
-      input.max = max;
-      input.value = Math.min(Number(input.value) || currentBet, max);
-      document.getElementById('raiseMax').textContent = max;
+      input.min = minRaiseTo;
+      input.max = maxRaiseTo;
+      input.step = state.minRaiseUnit;
+      input.value = Math.min(Math.max(minRaiseTo, currentBet + state.minRaiseUnit), maxRaiseTo);
+      document.getElementById('raiseMax').textContent = maxRaiseTo;
       document.getElementById('raiseOverlay').classList.add('open');
     }
     function closeRaise() {
       document.getElementById('raiseOverlay').classList.remove('open');
     }
     function confirmRaise() {
-      let amount = Number(document.getElementById('raiseAmount').value);
-      const max = currentBet * 2;
-      if (amount > max) amount = max;
-      if (amount < 0) amount = 0;
-      currentBet = amount;
-      myBet = amount;
-      updateActionButtons();
+      const amount = Number(document.getElementById('raiseAmount').value);
+      room.send('action', { type: 'raise', amount: amount });
       closeRaise();
     }
 
-    // --- フォールド・オールイン・ロストインの再確認 ---
+    // ---------- フォールド・オールイン・ロストイン・降参・退室の再確認 ----------
     const confirmMessages = {
       fold: '本当にフォールドしますか?',
       allin: '本当にオールインしますか?',
-      lostin: '本当にロストインしますか?(残りの身体パーツを全て失います)'
+      lostin: '本当にロストインしますか?(残りの身体パーツを全て失います)',
+      lostin_counter: '本当に対抗ロストインしますか?(残りの身体パーツを全て失います)',
+      surrender: '本当に降参しますか?(このゲームから脱落し、観戦モードになります)',
+      leave: '本当に退室しますか?(タイトル画面に戻ります)'
     };
     let pendingAction = null;
 
     function confirmAction(action) {
+      if (action === 'fold' && document.getElementById('btnFold').disabled) return;
+      if (action === 'allin' && document.getElementById('btnAllin').disabled) return;
+      if (action === 'lostin') {
+        if (document.getElementById('btnLostin').disabled) return;
+        // ロストイン応答中に押した場合は「対抗ロストイン」の確認文言にする
+        if (room && room.state && room.state.lostInActive) action = 'lostin_counter';
+      }
       pendingAction = action;
       document.getElementById('confirmMessage').textContent = confirmMessages[action];
       document.getElementById('confirmOverlay').classList.add('open');
@@ -273,21 +653,73 @@
     }
     function executeConfirmedAction() {
       if (pendingAction === 'fold') {
-        // フォールド処理
+        room.send('action', { type: 'fold' });
       } else if (pendingAction === 'allin') {
-        // オールイン処理
-      } else if (pendingAction === 'lostin') {
-        // ロストイン処理(赤札提示フローへ)
+        room.send('action', { type: 'allin' });
+      } else if (pendingAction === 'lostin' || pendingAction === 'lostin_counter') {
+        room.send('action', { type: 'lostin' });
+      } else if (pendingAction === 'surrender') {
+        room.send('surrender');
+        navigatedAway = true;
+        LFH.clearSession();
+        location.href = 'title.html';
+      } else if (pendingAction === 'leave') {
+        room.leave(true); // consented=true(明示的な退室、再接続猶予なし)
+        navigatedAway = true;
+        LFH.clearSession();
+        location.href = 'title.html';
       }
       closeConfirm();
     }
 
-    (function() {
-      const nav = performance.getEntriesByType('navigation')[0];
-      if (nav && nav.type === 'reload') {
+    // ---------- 初期化・接続 ----------
+    async function init() {
+      room = await LFH.reconnectRoom();
+      if (!room) {
+        alert('セッションが見つかりません。タイトルに戻ります。');
         location.href = 'title.html';
+        return;
       }
-    })();
+
+      // ノーマルモードでは身体換金要素を非表示にする(ロストフルモードは今後実装)
+      if (room.state.mode !== 'lostfull') {
+        document.querySelector('.exchange-tab').style.display = 'none';
+        document.querySelector('.body-icon').style.display = 'none';
+        document.getElementById('selfRedNote').style.display = 'none';
+        document.getElementById('btnLostin').style.display = 'none';
+      }
+
+      room.onMessage('yourHoleCards', function (message) {
+        renderCardEl(document.getElementById('myCard1'), message.cards[0]);
+        renderCardEl(document.getElementById('myCard2'), message.cards[1]);
+      });
+
+      room.onMessage('actionError', function (message) {
+        showToast(actionErrorMessages[message.reason] || 'その操作はできません');
+      });
+
+      room.onMessage('showdownResult', function (message) {
+        message.results.forEach(function (r) {
+          const el = document.createElement('div');
+          el.className = 'log-line';
+          el.style.color = '#e0d060';
+          el.textContent = message.noShowdown
+            ? (r.name + 'の勝利(ポット' + r.amountWon + 'チップ獲得)')
+            : (r.name + ': ' + r.handName + '(+' + r.amountWon + ')');
+          document.getElementById('gameLog').appendChild(el);
+        });
+        document.getElementById('gameLog').scrollTop = document.getElementById('gameLog').scrollHeight;
+      });
+
+      room.onStateChange(function () { render(); });
+      render();
+    }
+    init();
+
+    window.addEventListener('beforeunload', function () {
+      // ページ遷移時にサーバー側の再接続猶予(allowReconnection)を活かすため、
+      // ここでは明示的なroom.leave()は呼ばない(自然切断→60秒以内に次ページでreconnectする想定)
+    });
   </script>
 </body>
 </html>
