@@ -66,6 +66,11 @@ export class PokerRoom extends Room<RoomState> {
     this.onMessage("updateSettings", (client, message) => this.handleUpdateSettings(client, message));
     this.onMessage("surrender", (client) => this.handleSurrender(client));
     this.onMessage("exchangeBodyPart", (client, message) => this.handleExchangeBodyPart(client, message));
+    console.log(`[LFH] onCreate roomId=${this.roomId}`);
+  }
+
+  onDispose() {
+    console.log(`[LFH] onDispose roomId=${this.roomId} roomCode=${this.state.roomCode}`);
   }
 
   /** 現在アクティブな他の「poker」ルームと重複しない4桁のルームコードを発行する */
@@ -81,6 +86,7 @@ export class PokerRoom extends Room<RoomState> {
   }
 
   onJoin(client: Client, options: { name?: string }) {
+    console.log(`[LFH] onJoin sessionId=${client.sessionId} name=${options?.name}`);
     if (this.state.gameStarted) {
       // ゲーム開始後の途中参加は現段階では未対応(observerとしての入室などは今後の課題)
       throw new Error("既にゲームが開始されているため参加できません");
@@ -100,12 +106,17 @@ export class PokerRoom extends Room<RoomState> {
   }
 
   async onLeave(client: Client, consented: boolean) {
+    console.log(`[LFH] onLeave START sessionId=${client.sessionId} consented=${consented}`);
     const player = this.state.players.get(client.sessionId);
-    if (!player) return;
+    if (!player) {
+      console.log(`[LFH] onLeave: player not found in state (already removed?) sessionId=${client.sessionId}`);
+      return;
+    }
     player.connected = false;
 
     if (consented) {
       // 「退室」ボタンなど、明示的な離脱
+      console.log(`[LFH] onLeave: consented leave, treating as permanent. sessionId=${client.sessionId}`);
       this.handlePlayerGoneForGood(client.sessionId);
       return;
     }
@@ -113,12 +124,15 @@ export class PokerRoom extends Room<RoomState> {
     // ページ遷移(title→room-create→table など)や瞬断はここに入る。
     // 60秒間は同じセッションでの再接続(client.reconnect)を受け付け、
     // 別プレイヤー扱いにならないようにする。
+    console.log(`[LFH] onLeave: arming allowReconnection(60s) sessionId=${client.sessionId} reconnectionToken=${(client as any)._reconnectionToken}`);
     try {
       await this.allowReconnection(client, 60);
       player.connected = true; // 再接続成功
+      console.log(`[LFH] onLeave: RECONNECTED successfully sessionId=${client.sessionId}`);
       this.pushLog(`${player.name}が再接続しました`);
     } catch (e) {
       // 60秒以内に再接続されなかった → 本当に退室したとみなす
+      console.log(`[LFH] onLeave: allowReconnection FAILED/EXPIRED sessionId=${client.sessionId} error=${e}`);
       this.handlePlayerGoneForGood(client.sessionId);
     }
   }
