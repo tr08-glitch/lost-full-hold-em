@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@colyseus/schema": "^2.0.28",
+    "@colyseus/ws-transport": "^0.15.3",
     "colyseus": "^0.15.17",
     "express": "^4.19.2",
     "pokersolver": "^2.1.4"
