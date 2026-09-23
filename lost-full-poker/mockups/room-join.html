@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ロストフルホールデム - ルーム参加</title>
+<style>
+  body { margin:0; font-family: "Hiragino Sans", sans-serif; background:#0a0a0a; color:#e5e5e5; display:flex; align-items:center; justify-content:center; height:100vh; }
+  .panel { background:#141414; border:1px solid #333; border-radius:10px; padding:24px; width:280px; text-align:center; }
+  .code-display { font-size:28px; letter-spacing:8px; background:#1a1a1a; border:1px solid #444; border-radius:6px; padding:10px; margin-bottom:16px; min-height:20px; }
+  .keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+  .keypad button { background:#1a1a1a; border:1px solid #444; color:#eee; padding:14px; font-size:16px; border-radius:6px; cursor:pointer; }
+  .actions { display:flex; flex-direction:column; gap:8px; }
+  .actions button { padding:10px; border-radius:6px; cursor:pointer; }
+  .confirm { background:#b91c1c33; border:1px solid #b91c1c; color:#eee; }
+  .clear, .back { background:#1a1a1a; border:1px solid #666; color:#eee; }
+</style>
+</head>
+<body>
+  <div class="panel">
+    <div class="code-display" id="codeDisplay">____</div>
+    <div class="keypad">
+      <button onclick="pressKey('1')">1</button><button onclick="pressKey('2')">2</button><button onclick="pressKey('3')">3</button>
+      <button onclick="pressKey('4')">4</button><button onclick="pressKey('5')">5</button><button onclick="pressKey('6')">6</button>
+      <button onclick="pressKey('7')">7</button><button onclick="pressKey('8')">8</button><button onclick="pressKey('9')">9</button>
+      <button class="clear" onclick="clearCode()">クリア</button><button onclick="pressKey('0')">0</button><button class="confirm" onclick="location.href='room-create.html'">決定</button>
+    </div>
+    <div class="actions">
+      <button class="back" onclick="location.href='title.html'">戻る</button>
+    </div>
+  </div>
+  <script>
+    let code = '';
+    function pressKey(n) {
+      if (code.length < 4) code += n;
+      render();
+    }
+    function clearCode() {
+      code = '';
+      render();
+    }
+    function render() {
+      document.getElementById('codeDisplay').textContent = (code + '____').slice(0, 4);
+    }
+
+    (function() {
+      const nav = performance.getEntriesByType('navigation')[0];
+      if (nav && nav.type === 'reload') {
+        location.href = 'title.html';
+      }
+    })();
+  </script>
+</body>
+</html>
