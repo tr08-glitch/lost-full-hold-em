@@ -86,7 +86,7 @@
       <div class="deck-box">山札<br>39</div>
     </div>
 
-    <div class="hand-label">手札</div>
+    <div class="hand-label">ホールカード</div>
     <div class="hand-area">
       <div class="hand-card"></div>
       <div class="hand-card"></div>
@@ -150,6 +150,13 @@
       document.getElementById('exchangeDrawer').classList.remove('open');
       document.getElementById('drawerOverlay').classList.remove('open');
     }
+
+    (function() {
+      const nav = performance.getEntriesByType('navigation')[0];
+      if (nav && nav.type === 'reload') {
+        location.href = 'title.html';
+      }
+    })();
   </script>
 </body>
 </html>

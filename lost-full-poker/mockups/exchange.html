@@ -181,6 +181,13 @@
     }
 
     highlightPart();
+
+    (function() {
+      const nav = performance.getEntriesByType('navigation')[0];
+      if (nav && nav.type === 'reload') {
+        location.href = 'title.html';
+      }
+    })();
   </script>
 </body>
 </html>
