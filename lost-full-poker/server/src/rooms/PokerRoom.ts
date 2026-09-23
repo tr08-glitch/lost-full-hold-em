@@ -72,7 +72,7 @@ export class PokerRoom extends Room<RoomState> {
     this.onMessage("surrender", (client) => this.handleSurrender(client));
     this.onMessage("exchangeBodyPart", (client, message) => this.handleExchangeBodyPart(client, message));
     this.onMessage("leaveIntentional", (client) => {
-      console.log(`[LFH] leaveIntentional received sessionId=${client.sessionId}`);
+      console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] leaveIntentional received sessionId=${client.sessionId}`);
       this.intentionalLeaves.add(client.sessionId);
     });
     console.log(`[LFH] onCreate roomId=${this.roomId}`);
@@ -95,7 +95,7 @@ export class PokerRoom extends Room<RoomState> {
   }
 
   onJoin(client: Client, options: { name?: string }) {
-    console.log(`[LFH] onJoin sessionId=${client.sessionId} name=${options?.name}`);
+    console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onJoin sessionId=${client.sessionId} name=${options?.name}`);
     if (this.state.gameStarted) {
       // ゲーム開始後の途中参加は現段階では未対応(observerとしての入室などは今後の課題)
       throw new Error("既にゲームが開始されているため参加できません");
@@ -118,18 +118,18 @@ export class PokerRoom extends Room<RoomState> {
     const isIntentional = this.intentionalLeaves.has(client.sessionId);
     this.intentionalLeaves.delete(client.sessionId);
     console.log(
-      `[LFH] onLeave START sessionId=${client.sessionId} consented=${consented} isIntentional=${isIntentional}`
+      `[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave START sessionId=${client.sessionId} consented=${consented} isIntentional=${isIntentional}`
     );
     const player = this.state.players.get(client.sessionId);
     if (!player) {
-      console.log(`[LFH] onLeave: player not found in state (already removed?) sessionId=${client.sessionId}`);
+      console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: player not found in state (already removed?) sessionId=${client.sessionId}`);
       return;
     }
     player.connected = false;
 
     if (isIntentional) {
       // 「退室」ボタンなど、本人が明示的に退室した場合のみ、再接続を待たず即座に処理する
-      console.log(`[LFH] onLeave: intentional leave, treating as permanent. sessionId=${client.sessionId}`);
+      console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: intentional leave, treating as permanent. sessionId=${client.sessionId}`);
       this.handlePlayerGoneForGood(client.sessionId);
       return;
     }
@@ -137,15 +137,15 @@ export class PokerRoom extends Room<RoomState> {
     // ページ遷移(title→room-create→table など)や瞬断はここに入る。
     // 60秒間は同じセッションでの再接続(client.reconnect)を受け付け、
     // 別プレイヤー扱いにならないようにする。
-    console.log(`[LFH] onLeave: arming allowReconnection(60s) sessionId=${client.sessionId} reconnectionToken=${(client as any)._reconnectionToken}`);
+    console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: arming allowReconnection(60s) sessionId=${client.sessionId} reconnectionToken=${(client as any)._reconnectionToken}`);
     try {
       await this.allowReconnection(client, 60);
       player.connected = true; // 再接続成功
-      console.log(`[LFH] onLeave: RECONNECTED successfully sessionId=${client.sessionId}`);
+      console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: RECONNECTED successfully sessionId=${client.sessionId}`);
       this.pushLog(`${player.name}が再接続しました`);
     } catch (e) {
       // 60秒以内に再接続されなかった → 本当に退室したとみなす
-      console.log(`[LFH] onLeave: allowReconnection FAILED/EXPIRED sessionId=${client.sessionId} error=${e}`);
+      console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: allowReconnection FAILED/EXPIRED sessionId=${client.sessionId} error=${e}`);
       this.handlePlayerGoneForGood(client.sessionId);
     }
   }
