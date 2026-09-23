@@ -192,12 +192,18 @@
     }
 
     async function init() {
+      // 既存セッション(直前のroom-join.html等での接続)があったかどうかを先に確認しておく。
+      // これがあったのに再接続に失敗した場合は「本当のエラー」なので、
+      // 勝手に新しいルームを作ってしまわないようにする(誤って別ルームのGMになるバグを防ぐ)
+      const hadExistingSession = !!LFH.loadSession();
+
       try {
-        // まず既存セッションへの復帰を試みる(GM・参加者どちらの場合も、
-        // room-join.html経由で既に接続済み、またはこのページ自体のリロードならここで復帰する)
         room = await LFH.reconnectRoom();
         if (!room) {
-          // 復帰対象のセッションが無い = title.htmlから初めて来た(GMとして新規作成)
+          if (hadExistingSession) {
+            throw new Error('既存セッションへの再接続に失敗しました');
+          }
+          // セッションが元々無い = title.htmlから初めて来た(GMとして新規作成)
           const name = sessionStorage.getItem('playerName') || 'プレイヤー1';
           room = await LFH.createRoom({
             name,

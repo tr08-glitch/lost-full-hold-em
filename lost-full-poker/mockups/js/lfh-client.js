@@ -77,19 +77,26 @@ window.LFH = (function () {
   /**
    * 直前のページで確立したセッションに復帰する。
    * 保存されたセッションが無い、または再接続に失敗した場合はnullを返す
-   * (呼び出し側はtitle.htmlへ戻すなどのフォールバック処理を行うこと)
+   * (呼び出し側はtitle.htmlへ戻すなどのフォールバック処理を行うこと)。
+   * ページ遷移直後の一瞬のタイミングのズレに備え、失敗時は少し待って2回までリトライする。
    */
   async function reconnectRoom() {
     const session = loadSession();
     if (!session) return null;
-    try {
-      const room = await getClient().reconnect(session.reconnectionToken);
-      saveSession(room); // reconnectionTokenは使い回しではなく都度更新されるため保存し直す
-      return room;
-    } catch (e) {
-      clearSession();
-      return null;
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const room = await getClient().reconnect(session.reconnectionToken);
+        saveSession(room); // reconnectionTokenは使い回しではなく都度更新されるため保存し直す
+        return room;
+      } catch (e) {
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
+      }
     }
+    clearSession();
+    return null;
   }
 
   return {
