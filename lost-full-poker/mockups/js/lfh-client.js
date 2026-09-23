@@ -10,7 +10,7 @@
 window.LFH = (function () {
   // ▼▼▼ サーバーをRenderにデプロイしたら、ここを実際のURLに書き換えてください ▼▼▼
   // 例: "wss://lost-full-holdem-server.onrender.com"
-  const SERVER_URL = "ws://localhost:2567";
+  const SERVER_URL = "wss://lost-full-holdem-server.onrender.com";
   // ▲▲▲ ここまで ▲▲▲
 
   const SESSION_KEY = "lfh_session";
