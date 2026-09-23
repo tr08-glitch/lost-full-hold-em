@@ -660,11 +660,13 @@
         room.send('action', { type: 'lostin' });
       } else if (pendingAction === 'surrender') {
         room.send('surrender');
+        room.send('leaveIntentional'); // 降参後は再接続不要なので明示的な退室として扱う
         navigatedAway = true;
         LFH.clearSession();
         location.href = 'title.html';
       } else if (pendingAction === 'leave') {
-        room.leave(true); // consented=true(明示的な退室、再接続猶予なし)
+        room.send('leaveIntentional'); // サーバーに「意図的な退室」であることを伝える
+        room.leave(true);
         navigatedAway = true;
         LFH.clearSession();
         location.href = 'title.html';

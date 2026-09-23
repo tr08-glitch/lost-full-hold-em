@@ -180,7 +180,10 @@
     }
 
     function leaveRoom() {
-      if (room) room.leave(true); // consented=true(明示的な退室)
+      if (room) {
+        room.send('leaveIntentional'); // サーバーに「意図的な退室」であることを伝える
+        room.leave(true);
+      }
       LFH.clearSession();
       location.href = 'title.html';
     }

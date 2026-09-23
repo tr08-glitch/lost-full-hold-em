@@ -139,6 +139,16 @@ room.send("surrender");
 引数なし。ゲーム中に送ると、その場でフォールドした上で以降のラウンドから除外される(観戦扱い、`isSurrendered`がtrueになる)。
 ゲーム開始前(ロビー中)に送った場合は、退室と同じ扱いになる。
 
+### `leaveIntentional`
+```js
+room.send("leaveIntentional");
+```
+引数なし。「退室」「降参」ボタンなど、本人が明示的に接続を終える直前に送る。これを送ってから`room.leave(true)`
+(または降参のように単にページ遷移)すると、サーバー側は再接続を待たず即座に退室処理を行う。
+**注意**:`room.leave(consented)`の`consented`フラグは、ブラウザのページ遷移による切断でもtrueとして
+届くことがあり信用できなかったため、サーバー側はこのメッセージの有無を正としている(`onLeave`の`consented`引数は
+現在参照していない)。これを送らずに切断した場合は、通常のページ遷移とみなされ60秒間の再接続猶予が与えられる。
+
 ### `updateSettings`(GMのみ有効、ゲーム開始前のみ)
 ```js
 room.send("updateSettings", {

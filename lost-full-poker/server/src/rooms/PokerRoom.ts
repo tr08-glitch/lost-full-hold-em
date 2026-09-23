@@ -33,6 +33,11 @@ export class PokerRoom extends Room<RoomState> {
   // 最小レイズ未満のショートオールインが発生した際、レイズが打ち返せないプレイヤーの集合。
   // 正規サイズのレイズが行われる、または新しいストリートが始まるとクリアされる。
   private raiseRestricted: Set<string> = new Set();
+  // 「退室」ボタンなど、本人が明示的に退室したことを示すsessionIdの集合。
+  // room.leave()のconsentedフラグは、ブラウザのページ遷移による切断でも
+  // なぜかtrueとして届くことがあり信用できないため、これを正とする。
+  private intentionalLeaves: Set<string> = new Set();
+
   // 現在の手番プレイヤーの行動タイムアウト(30秒操作がなければ自動フォールド)
   private actionTimeout: { clear: () => void } | null = null;
   private static readonly ACTION_TIMEOUT_MS = 30_000;
@@ -66,6 +71,10 @@ export class PokerRoom extends Room<RoomState> {
     this.onMessage("updateSettings", (client, message) => this.handleUpdateSettings(client, message));
     this.onMessage("surrender", (client) => this.handleSurrender(client));
     this.onMessage("exchangeBodyPart", (client, message) => this.handleExchangeBodyPart(client, message));
+    this.onMessage("leaveIntentional", (client) => {
+      console.log(`[LFH] leaveIntentional received sessionId=${client.sessionId}`);
+      this.intentionalLeaves.add(client.sessionId);
+    });
     console.log(`[LFH] onCreate roomId=${this.roomId}`);
   }
 
@@ -106,7 +115,11 @@ export class PokerRoom extends Room<RoomState> {
   }
 
   async onLeave(client: Client, consented: boolean) {
-    console.log(`[LFH] onLeave START sessionId=${client.sessionId} consented=${consented}`);
+    const isIntentional = this.intentionalLeaves.has(client.sessionId);
+    this.intentionalLeaves.delete(client.sessionId);
+    console.log(
+      `[LFH] onLeave START sessionId=${client.sessionId} consented=${consented} isIntentional=${isIntentional}`
+    );
     const player = this.state.players.get(client.sessionId);
     if (!player) {
       console.log(`[LFH] onLeave: player not found in state (already removed?) sessionId=${client.sessionId}`);
@@ -114,9 +127,9 @@ export class PokerRoom extends Room<RoomState> {
     }
     player.connected = false;
 
-    if (consented) {
-      // 「退室」ボタンなど、明示的な離脱
-      console.log(`[LFH] onLeave: consented leave, treating as permanent. sessionId=${client.sessionId}`);
+    if (isIntentional) {
+      // 「退室」ボタンなど、本人が明示的に退室した場合のみ、再接続を待たず即座に処理する
+      console.log(`[LFH] onLeave: intentional leave, treating as permanent. sessionId=${client.sessionId}`);
       this.handlePlayerGoneForGood(client.sessionId);
       return;
     }
