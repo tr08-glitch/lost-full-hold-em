@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>ロストフルホールデム - 換金</title>
+<style>
+  body { margin:0; font-family: "Hiragino Sans", sans-serif; background:#0a0a0a; color:#e5e5e5; }
+  .screen { position:relative; width:100%; height:100vh; box-sizing:border-box; overflow:hidden; }
+
+  .back-tab { position:absolute; top:50%; left:0; transform:translateY(-50%); background:#141414; border:1px solid #666; border-left:none; border-radius:0 8px 8px 0; padding:16px 10px; writing-mode:vertical-rl; cursor:pointer; font-size:13px; color:#ccc; }
+
+  .note { position:absolute; top:16px; right:16px; font-size:11px; color:#888; text-align:right; line-height:1.6; max-width:180px; }
+
+  .panel { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:#141414; border:1px solid #333; border-radius:10px; padding:20px; width:280px; text-align:center; }
+  .figure { width:170px; height:260px; margin:0 auto 12px; }
+  .figure svg { width:100%; height:100%; }
+
+  /* 通常時(未換金)は身体色に馴染ませ、換金済みは黒く塗って一目で分かるようにする */
+  .base-fill { fill:#cfcfcf; }
+  .base-line { stroke:#cfcfcf; }
+  .part { fill:#cfcfcf; stroke:#8a8a8a; stroke-width:1.5; transition:fill .15s, stroke .15s; }
+  .part-line { stroke:#cfcfcf; transition:stroke .15s; fill:none; }
+  .part.lost { fill:#000; stroke:#000; }
+  .part-line.lost { stroke:#000; }
+  .part.highlight { stroke:#b91c1c; stroke-width:2.5; }
+  .part-line.highlight { stroke:#b91c1c; }
+
+  .select-row { display:flex; gap:8px; align-items:center; }
+  select { flex:1; background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px; border-radius:4px; }
+  .exchange-btn { background:#b91c1c33; border:1px solid #b91c1c; color:#eee; padding:8px 16px; border-radius:4px; cursor:pointer; }
+  .exchange-btn:disabled { opacity:.4; cursor:not-allowed; }
+  .legend { font-size:10px; color:#777; margin-top:10px; }
+</style>
+</head>
+<body>
+  <div class="screen">
+    <div class="back-tab" onclick="location.href='table.html'">戻る</div>
+
+    <div class="note">全体図<br>パーツの残を確認<br>(換金済みの部位は黒く表示)</div>
+
+    <div class="panel">
+      <div class="figure">
+        <svg viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
+          <!-- 脚(換金対象外・常時通常色) -->
+          <line x1="88" y1="170" x2="82" y2="270" class="base-line" stroke-width="16" stroke-linecap="round"/>
+          <line x1="112" y1="170" x2="118" y2="270" class="base-line" stroke-width="16" stroke-linecap="round"/>
+
+          <!-- 胴体(換金対象外の土台) -->
+          <rect x="62" y="78" width="76" height="96" rx="22" class="base-fill"/>
+
+          <!-- 腕(左右) -->
+          <line id="armLeft" x1="64" y1="90" x2="32" y2="172" class="part-line" stroke-width="15" stroke-linecap="round"/>
+          <line id="armRight" x1="136" y1="90" x2="168" y2="172" class="part-line" stroke-width="15" stroke-linecap="round"/>
+
+          <!-- 手のひら(換金対象外の土台) -->
+          <circle cx="32" cy="176" r="10" class="base-fill"/>
+          <circle cx="168" cy="176" r="10" class="base-fill"/>
+
+          <!-- 指(左手5本) -->
+          <line id="fingerL1" x1="32" y1="176" x2="14" y2="163" class="part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="fingerL2" x1="32" y1="176" x2="9"  y2="172" class="part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="fingerL3" x1="32" y1="176" x2="9"  y2="182" class="part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="fingerL4" x1="32" y1="176" x2="13" y2="191" class="part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="fingerL5" x1="32" y1="176" x2="19" y2="197" class="part-line" stroke-width="4" stroke-linecap="round"/>
+
+          <!-- 指(右手5本) -->
+          <line id="fingerR1" x1="168" y1="176" x2="186" y2="163" class="part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="fingerR2" x1="168" y1="176" x2="191" y2="172" class="part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="fingerR3" x1="168" y1="176" x2="191" y2="182" class="part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="fingerR4" x1="168" y1="176" x2="187" y2="191" class="part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="fingerR5" x1="168" y1="176" x2="181" y2="197" class="part-line" stroke-width="4" stroke-linecap="round"/>
+
+          <!-- 頭部(換金対象外の土台) -->
+          <circle cx="100" cy="42" r="27" class="base-fill"/>
+
+          <!-- 耳(左右) -->
+          <ellipse id="earLeft"  cx="71" cy="44" rx="6" ry="10" class="part"/>
+          <ellipse id="earRight" cx="129" cy="44" rx="6" ry="10" class="part"/>
+
+          <!-- 目(左右) -->
+          <circle id="eyeLeft"  cx="90" cy="38" r="4.5" class="part"/>
+          <circle id="eyeRight" cx="110" cy="38" r="4.5" class="part"/>
+
+          <!-- 歯 -->
+          <rect id="teeth" x="87" y="55" width="26" height="8" rx="2" class="part"/>
+
+          <!-- 肺(左右) -->
+          <ellipse id="lungLeft"  cx="83" cy="112" rx="13" ry="20" class="part"/>
+          <ellipse id="lungRight" cx="117" cy="112" rx="13" ry="20" class="part"/>
+
+          <!-- 心臓 -->
+          <circle id="heart" cx="100" cy="118" r="9" class="part"/>
+        </svg>
+      </div>
+      <div class="select-row">
+        <select id="partSelect" onchange="highlightPart()">
+          <option value="指">指</option>
+          <option value="歯">歯</option>
+          <option value="耳(左)">耳(左)</option>
+          <option value="耳(右)">耳(右)</option>
+          <option value="肺(左)">肺(左)</option>
+          <option value="肺(右)">肺(右)</option>
+          <option value="目(左)">目(左)</option>
+          <option value="目(右)">目(右)</option>
+          <option value="腕(左)">腕(左)</option>
+          <option value="腕(右)">腕(右)</option>
+          <option value="心臓">心臓</option>
+        </select>
+        <button class="exchange-btn" id="exchangeBtn" onclick="doExchange()">換金</button>
+      </div>
+      <div class="legend">グレー=未換金 / 黒=換金済み(不可逆)</div>
+    </div>
+  </div>
+
+  <script>
+    const partMap = {
+      "指": { type: "sequence", ids: ["fingerL1","fingerL2","fingerL3","fingerL4","fingerL5","fingerR1","fingerR2","fingerR3","fingerR4","fingerR5"] },
+      "歯": { type: "single", ids: ["teeth"] },
+      "耳(左)": { type: "single", ids: ["earLeft"] },
+      "耳(右)": { type: "single", ids: ["earRight"] },
+      "肺(左)": { type: "single", ids: ["lungLeft"] },
+      "肺(右)": { type: "single", ids: ["lungRight"] },
+      "目(左)": { type: "single", ids: ["eyeLeft"] },
+      "目(右)": { type: "single", ids: ["eyeRight"] },
+      "腕(左)": { type: "single", ids: ["armLeft","fingerL1","fingerL2","fingerL3","fingerL4","fingerL5"] },
+      "腕(右)": { type: "single", ids: ["armRight","fingerR1","fingerR2","fingerR3","fingerR4","fingerR5"] },
+      "心臓": { type: "single", ids: ["heart"] }
+    };
+
+    function clearHighlight() {
+      document.querySelectorAll('.highlight').forEach(el => el.classList.remove('highlight'));
+    }
+
+    function highlightPart() {
+      clearHighlight();
+      const key = document.getElementById('partSelect').value;
+      const def = partMap[key];
+      if (!def) return;
+      def.ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('lost')) el.classList.add('highlight');
+      });
+    }
+
+    function doExchange() {
+      const select = document.getElementById('partSelect');
+      const key = select.value;
+      const def = partMap[key];
+      if (!def) return;
+
+      if (def.type === 'single') {
+        def.ids.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) { el.classList.remove('highlight'); el.classList.add('lost'); }
+        });
+        const opt = select.querySelector('option[value="' + key + '"]');
+        if (opt) opt.remove();
+      } else if (def.type === 'sequence') {
+        const nextId = def.ids.find(id => {
+          const el = document.getElementById(id);
+          return el && !el.classList.contains('lost');
+        });
+        if (nextId) {
+          const el = document.getElementById(nextId);
+          el.classList.remove('highlight');
+          el.classList.add('lost');
+        }
+        const remaining = def.ids.some(id => !document.getElementById(id).classList.contains('lost'));
+        if (!remaining) {
+          const opt = select.querySelector('option[value="' + key + '"]');
+          if (opt) opt.remove();
+        }
+      }
+
+      if (select.options.length > 0) {
+        select.selectedIndex = 0;
+        highlightPart();
+      } else {
+        document.getElementById('exchangeBtn').disabled = true;
+      }
+    }
+
+    highlightPart();
+  </script>
+</body>
+</html>
