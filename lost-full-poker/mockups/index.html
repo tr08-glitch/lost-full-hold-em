@@ -2,10 +2,1002 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta http-equiv="refresh" content="0; url=title.html">
 <title>ロストフルホールデム</title>
+<style>
+  body { margin:0; font-family: "Hiragino Sans", sans-serif; background:#0a0a0a; color:#e5e5e5; }
+  .app-screen { display:none; }
+
+  /* ---------- タイトル画面 ---------- */
+  .screen-title { position:relative; width:100%; height:100vh; box-sizing:border-box; padding:24px; }
+  .title-logo { position:absolute; top:24px; left:24px; font-size:28px; color:#b91c1c; letter-spacing:2px; }
+  .settings-icon { position:absolute; top:24px; right:24px; font-size:24px; cursor:pointer; }
+  .name-input { position:absolute; top:80px; left:24px; }
+  .name-input input { background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px 12px; border-radius:4px; }
+  .menu { position:absolute; top:50%; left:6%; transform:translateY(-50%); display:flex; flex-direction:column; gap:16px; }
+  .menu button { background:#1a1a1a; border:1px solid #b91c1c; color:#eee; padding:16px 48px; font-size:16px; border-radius:6px; cursor:pointer; }
+  .menu button:hover { background:#b91c1c33; }
+  .credit { position:absolute; bottom:24px; right:24px; color:#777; font-size:12px; cursor:pointer; }
+
+  /* ---------- ルーム参加(テンキー)画面 ---------- */
+  .screen-join { display:flex; align-items:center; justify-content:center; height:100vh; }
+  .join-panel { background:#141414; border:1px solid #333; border-radius:10px; padding:24px; width:280px; text-align:center; }
+  .code-display { font-size:28px; letter-spacing:8px; background:#1a1a1a; border:1px solid #444; border-radius:6px; padding:10px; margin-bottom:12px; min-height:20px; }
+  .join-error { font-size:12px; color:#e05252; min-height:16px; margin-bottom:8px; }
+  .keypad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:16px; }
+  .keypad button { background:#1a1a1a; border:1px solid #444; color:#eee; padding:14px; font-size:16px; border-radius:6px; cursor:pointer; }
+  .join-actions { display:flex; flex-direction:column; gap:8px; }
+  .join-actions button { padding:10px; border-radius:6px; cursor:pointer; }
+  .confirm { background:#b91c1c33; border:1px solid #b91c1c; color:#eee; }
+  .clear, .back { background:#1a1a1a; border:1px solid #666; color:#eee; }
+
+  /* ---------- ルームロビー画面 ---------- */
+  .screen-room { display:flex; height:100vh; box-sizing:border-box; padding:24px; gap:24px; }
+  .room-left { width:40%; display:flex; flex-direction:column; gap:14px; }
+  .room-id { font-size:26px; letter-spacing:6px; color:#b91c1c; }
+  .room-id .label { font-size:11px; color:#999; letter-spacing:0; display:block; margin-bottom:2px; }
+  label { font-size:12px; color:#999; display:block; margin-bottom:4px; }
+  select, input { background:#1a1a1a; border:1px solid #444; color:#eee; padding:6px 10px; border-radius:4px; width:100%; box-sizing:border-box; }
+  .gm-only { border:1px dashed #b91c1c; padding:8px; border-radius:4px; }
+  .gm-only span { font-size:10px; color:#b91c1c; }
+  body.role-participant .gm-only { display:none; }
+  button { background:#1a1a1a; border:1px solid #666; color:#eee; padding:10px; border-radius:6px; cursor:pointer; }
+  button:disabled { opacity:0.4; cursor:not-allowed; }
+  .primary { border-color:#b91c1c; }
+  .players { list-style:none; padding:0; margin:8px 0; }
+  .players li { padding:6px 10px; background:#1a1a1a; border-radius:4px; margin-bottom:6px; font-size:14px; }
+  .top-icons { position:absolute; top:12px; right:12px; display:flex; gap:12px; font-size:18px; }
+  .status-line { font-size:12px; color:#777; }
+  .room-right-wrap { flex:1; display:flex; flex-direction:column; gap:16px; }
+  .player-box { background:#141414; border:1px solid #333; border-radius:8px; padding:16px; position:relative; flex:1; overflow-y:auto; }
+  .chat-box { background:#141414; border:1px solid #333; border-radius:8px; padding:16px; height:160px; display:flex; flex-direction:column; }
+  .chat-input-row { display:flex; gap:6px; margin-top:8px; }
+  .chat-input-row input { flex:1; }
+  .chat-send-btn { flex-shrink:0; padding:8px 14px; }
+
+  .modal-overlay { display:none; position:fixed; inset:0; background:#000000aa; align-items:center; justify-content:center; z-index:10; }
+  .modal { background:#141414; border:1px solid #b91c1c; border-radius:10px; padding:24px; width:320px; }
+  .modal h3 { margin:0 0 16px; color:#b91c1c; font-size:16px; }
+  .modal-row { margin-bottom:14px; }
+  .modal-row label { font-size:12px; color:#999; margin-bottom:4px; display:block; }
+  .toggle-row { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:13px; }
+  .modal-actions { display:flex; gap:8px; margin-top:20px; }
+  .modal-actions button { flex:1; }
+
+  /* ---------- 対戦卓画面 ---------- */
+  .screen-table { position:relative; width:100%; height:100vh; box-sizing:border-box; overflow:hidden; }
+  .round-box { position:absolute; top:16px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:13px; }
+  .round-box .val { color:#b91c1c; font-size:18px; font-weight:bold; }
+  .opponents { position:absolute; top:16px; left:160px; right:16px; display:flex; gap:16px; }
+  .opponent { flex:1; max-width:180px; background:#141414; border:1px solid #333; border-radius:6px; padding:10px; text-align:center; position:relative; }
+  .opponent .name { font-size:12px; color:#999; margin-bottom:6px; }
+  .opponent .cards { height:70px; border:1px dashed #333; border-radius:4px; margin-bottom:8px; }
+  .opponent .stat-line { font-size:11px; background:#1a1a1a; border:1px solid #333; border-radius:4px; padding:3px 6px; margin-top:4px; }
+  .opponent .stat-line.red { color:#e05252; }
+  .position-badge { position:absolute; top:-10px; right:-10px; min-width:26px; height:20px; padding:0 6px; border-radius:10px; background:#f0d060; color:#1a1a00; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 0 6px #000000aa; z-index:2; white-space:nowrap; }
+  .game-log { position:absolute; bottom:212px; left:16px; width:220px; max-height:110px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 10px; font-size:11px; color:#aaa; overflow-y:auto; z-index:3; }
+  .game-log .log-title { color:#777; font-size:10px; margin-bottom:4px; }
+  .game-log .log-line { margin-bottom:3px; line-height:1.4; }
+  .top-right-actions { position:absolute; top:16px; right:16px; display:flex; gap:8px; z-index:5; }
+  .top-right-actions button { background:#1a1a1a; border:1px solid #666; color:#ccc; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
+  .top-right-actions button.surrender { border-color:#b91c1c; color:#e05252; }
+  .hand-area { position:absolute; bottom:120px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:flex-end; }
+  .hand-card { width:60px; height:90px; background:#fdfdfd; border:1px solid #666; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:bold; font-size:20px; color:#1a1a1a; }
+  .hand-card.red { color:#c92a2a; }
+  .hand-card .suit { font-size:22px; margin-top:2px; }
+  .hand-label { position:absolute; bottom:90px; left:50%; transform:translateX(-50%); font-size:11px; color:#888; }
+  .self-panel { position:absolute; bottom:16px; left:16px; background:#141414; border:1px solid #b91c1c; border-radius:8px; padding:12px; width:220px; }
+  .self-panel .name { font-size:13px; color:#999; margin-bottom:8px; }
+  .row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+  .body-icon { width:32px; height:32px; border:1px solid #b91c1c; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; background:#b91c1c22; }
+  .red-note { font-size:12px; color:#e05252; }
+  .stat { background:#1a1a1a; border:1px solid #444; border-radius:4px; padding:4px 10px; font-size:13px; flex:1; }
+  .community-area { position:absolute; top:48%; left:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:24px; }
+  .community-cards { display:flex; gap:6px; }
+  .community-card { width:48px; height:72px; background:#1a1a1a; border:1px solid #555; border-radius:5px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:bold; font-size:15px; color:#eee; }
+  .community-card.red { color:#e05252; }
+  .community-card .suit { font-size:15px; margin-top:1px; }
+  .deck-box { width:48px; height:72px; background:#1a1a1a; border:1px solid #b91c1c; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#e05252; text-align:center; }
+  .used-box { width:48px; height:72px; background:#1a1a1a; border:1px dashed #555; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#777; text-align:center; }
+  .exchange-tab { position:absolute; top:50%; right:0; transform:translateY(-50%); background:#141414; border:1px solid #b91c1c; border-right:none; border-radius:8px 0 0 8px; padding:16px 10px; writing-mode:vertical-rl; cursor:pointer; font-size:13px; color:#e05252; z-index:5; }
+  .drawer-overlay { position:absolute; inset:0; background:#000000aa; opacity:0; pointer-events:none; transition:opacity .25s; z-index:8; }
+  .drawer-overlay.open { opacity:1; pointer-events:auto; }
+  .exchange-drawer { position:absolute; top:0; right:0; height:100%; width:340px; max-width:88%; background:#141414; border-left:1px solid #b91c1c; box-shadow:-8px 0 24px #000000aa; transform:translateX(100%); transition:transform .3s ease; z-index:9; padding:20px; box-sizing:border-box; overflow-y:auto; }
+  .exchange-drawer.open { transform:translateX(0); }
+  .drawer-close { position:absolute; top:12px; left:12px; cursor:pointer; color:#ccc; font-size:13px; border:1px solid #666; border-radius:4px; padding:4px 10px; }
+  .drawer-note { font-size:11px; color:#888; text-align:right; line-height:1.6; margin-bottom:8px; }
+  .drawer-figure { width:170px; height:250px; margin:36px auto 12px; }
+  .drawer-figure svg { width:100%; height:100%; }
+  .drawer-base-fill { fill:#cfcfcf; }
+  .drawer-base-line { stroke:#cfcfcf; }
+  .drawer-part { fill:#cfcfcf; stroke:#8a8a8a; stroke-width:1.5; transition:fill .15s, stroke .15s; }
+  .drawer-part-line { stroke:#cfcfcf; transition:stroke .15s; fill:none; }
+  .drawer-part.lost { fill:#000; stroke:#000; }
+  .drawer-part-line.lost { stroke:#000; }
+  .drawer-part.highlight { stroke:#b91c1c; stroke-width:2.5; }
+  .drawer-part-line.highlight { stroke:#b91c1c; }
+  .drawer-select-row { display:flex; gap:8px; align-items:center; }
+  .drawer-select-row select { flex:1; background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px; border-radius:4px; }
+  .drawer-legend { font-size:10px; color:#777; margin-top:10px; text-align:center; }
+  .drawer-exchange-btn { background:#b91c1c33; border:1px solid #b91c1c; color:#eee; padding:8px 16px; border-radius:4px; cursor:pointer; }
+  .action-bar { position:absolute; bottom:16px; right:16px; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; z-index:5; }
+  .action-btn { background:#1a1a1a; border:1px solid #666; color:#eee; padding:12px 16px; border-radius:6px; cursor:pointer; font-size:13px; white-space:nowrap; }
+  .action-btn:disabled { opacity:.35; cursor:not-allowed; }
+  .action-btn.raise { border-color:#e0a752; color:#e0a752; }
+  .action-btn.fold { border-color:#3b4d9e; color:#6f83e0; background:#151a33; }
+  .action-btn.allin { border-color:#d4b400; color:#e6c700; background:#2a2408; }
+  .action-btn.lostin { border-color:#5a0a0a; color:#c93a3a; background:#220505; font-weight:bold; }
+  .center-modal-overlay { display:none; position:absolute; inset:0; background:#000000aa; align-items:center; justify-content:center; z-index:20; }
+  .center-modal-overlay.open { display:flex; }
+  .center-modal { background:#141414; border:1px solid #b91c1c; border-radius:10px; padding:22px; width:280px; text-align:center; }
+  .center-modal p { font-size:14px; margin:0 0 18px; line-height:1.6; }
+  .center-modal-actions { display:flex; gap:8px; }
+  .center-modal-actions button { flex:1; padding:10px; border-radius:6px; cursor:pointer; background:#1a1a1a; border:1px solid #666; color:#eee; }
+  .center-modal-actions button.confirm-yes { border-color:#b91c1c; color:#e05252; }
+  .raise-modal { background:#141414; border:1px solid #e0a752; border-radius:10px; padding:22px; width:280px; }
+  .raise-modal h3 { margin:0 0 16px; color:#e0a752; font-size:15px; }
+  .raise-modal label { font-size:12px; color:#999; display:block; margin-bottom:6px; }
+  .raise-modal input { width:100%; box-sizing:border-box; background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px 10px; border-radius:4px; font-size:16px; }
+  .raise-modal .range-note { font-size:11px; color:#777; margin-top:6px; }
+  .raise-modal-actions { display:flex; gap:8px; margin-top:18px; }
+  .raise-modal-actions button { flex:1; padding:10px; border-radius:6px; cursor:pointer; background:#1a1a1a; border:1px solid #666; color:#eee; }
+  .raise-modal-actions button.confirm { border-color:#e0a752; color:#e0a752; }
+</style>
 </head>
 <body>
-  <p><a href="title.html">タイトル画面へ</a></p>
+
+  <!-- ================= タイトル画面 ================= -->
+  <div class="app-screen screen-title" id="screen-title">
+    <div class="title-logo">LOST FULL HOLDEM</div>
+    <div class="settings-icon">⚙</div>
+    <div class="name-input">
+      <label style="font-size:12px;color:#999;">プレイヤー名</label><br>
+      <input type="text" id="playerNameInput" placeholder="プレイヤー1" maxlength="10">
+    </div>
+    <div class="menu">
+      <button onclick="startAsGM()">AI戦</button>
+      <button onclick="startAsGM()">ルーム作成</button>
+      <button onclick="goToJoinScreen()">ルーム参加</button>
+    </div>
+    <div class="credit">Credit</div>
+  </div>
+
+  <!-- ================= ルーム参加(テンキー)画面 ================= -->
+  <div class="app-screen screen-join" id="screen-join">
+    <div class="join-panel">
+      <div class="code-display" id="codeDisplay">____</div>
+      <div class="join-error" id="joinError"></div>
+      <div class="keypad">
+        <button onclick="pressKey('1')">1</button><button onclick="pressKey('2')">2</button><button onclick="pressKey('3')">3</button>
+        <button onclick="pressKey('4')">4</button><button onclick="pressKey('5')">5</button><button onclick="pressKey('6')">6</button>
+        <button onclick="pressKey('7')">7</button><button onclick="pressKey('8')">8</button><button onclick="pressKey('9')">9</button>
+        <button class="clear" onclick="clearJoinCode()">クリア</button><button onclick="pressKey('0')">0</button><button class="confirm" id="joinConfirmBtn" onclick="doJoinRoom()">決定</button>
+      </div>
+      <div class="join-actions">
+        <button class="back" onclick="showScreen('screen-title')">戻る</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= ルームロビー画面 ================= -->
+  <div class="app-screen screen-room" id="screen-room">
+    <div class="room-left">
+      <div class="room-id"><span class="label">ROOM CODE</span><span id="roomIdText">----</span></div>
+      <div class="gm-only">
+        <span>GMのみ表示</span>
+        <button onclick="openSettings()" style="width:100%;">ゲーム設定</button>
+      </div>
+      <div class="status-line" id="statusLine"></div>
+      <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
+        <div class="gm-only"><span>GMのみ表示</span><button id="startBtn" class="primary" style="width:100%;" onclick="startGame()" disabled>ゲーム開始</button></div>
+        <button onclick="leaveRoom()">ルームから抜ける</button>
+        <div class="gm-only"><span>GMのみ表示</span><button style="width:100%;" onclick="leaveRoom()">ルーム解散</button></div>
+      </div>
+    </div>
+    <div class="room-right-wrap">
+      <div class="player-box">
+        <div class="top-icons">📖 ⚙</div>
+        <label>参加プレイヤー</label>
+        <ul class="players" id="playerList"></ul>
+      </div>
+      <div class="chat-box">
+        <label>チャット(未実装:表示のみ)</label>
+        <div style="flex:1;"></div>
+        <div class="chat-input-row">
+          <select style="width:100px;"><option>全体</option></select>
+          <input type="text" placeholder="チャット入力">
+          <button class="chat-send-btn primary">送信</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="settingsModal">
+    <div class="modal">
+      <h3>ゲーム設定</h3>
+      <div class="modal-row">
+        <label>モード</label>
+        <select id="modeSelect">
+          <option value="normal">ノーマル</option>
+          <option value="lostfull" selected>ロストフル</option>
+        </select>
+      </div>
+      <div class="modal-row">
+        <label>初期チップ</label>
+        <input type="number" id="startingChipsInput" value="1000">
+      </div>
+      <div class="modal-row">
+        <label>ラウンド数</label>
+        <input type="number" id="maxRoundsInput" value="10">
+      </div>
+      <div class="modal-row">
+        <label>ビッグブラインドの金額</label>
+        <input type="number" id="bbAmount" value="40" oninput="document.getElementById('sbAmount').textContent = Math.floor(this.value / 2)">
+        <div style="font-size:11px; color:#777; margin-top:4px;">スモールブラインド: <span id="sbAmount">20</span>(自動で半額)</div>
+      </div>
+      <div class="toggle-row"><span>ジョーカーの有無</span><input type="checkbox" id="jokerToggle" onchange="document.getElementById('jokerCount').disabled = !this.checked"></div>
+      <div class="modal-row">
+        <label>ジョーカーの枚数</label>
+        <input type="number" id="jokerCount" value="2" min="1" max="4" disabled>
+      </div>
+      <div style="font-size:10px; color:#666; margin:-6px 0 12px;">※ジョーカー設定は未実装のため、現時点では反映されません</div>
+      <div class="toggle-row"><span>他プレイヤーの赤札推定額を表示</span><input type="checkbox" checked></div>
+      <div class="toggle-row"><span>他プレイヤーのチップ額を表示</span><input type="checkbox" checked></div>
+      <div class="toggle-row"><span>他プレイヤーのBET額を表示</span><input type="checkbox" checked></div>
+      <div class="modal-actions">
+        <button onclick="closeSettings()">キャンセル</button>
+        <button class="primary" onclick="confirmSettings()">確定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= 対戦卓画面 ================= -->
+  <div class="app-screen screen-table" id="screen-table">
+    <div class="round-box">残りラウンド<br><span class="val">-</span></div>
+    <div class="round-box" id="lostInBanner" style="display:none; top:64px; border-color:#b91c1c; color:#e05252;"></div>
+
+    <div class="top-right-actions">
+      <button class="surrender" onclick="confirmAction('surrender')">降参</button>
+      <button onclick="confirmAction('leave')">退室</button>
+    </div>
+
+    <div class="opponents" id="opponentsArea"></div>
+
+    <div class="game-log" id="gameLog">
+      <div class="log-title">ゲームログ</div>
+    </div>
+
+    <div class="community-area">
+      <div class="used-box">使用済</div>
+      <div class="community-cards">
+        <div class="community-card"></div>
+        <div class="community-card"></div>
+        <div class="community-card"></div>
+        <div class="community-card"></div>
+        <div class="community-card"></div>
+      </div>
+      <div class="deck-box">山札<br>-</div>
+    </div>
+
+    <div class="hand-label">ホールカード</div>
+    <div class="hand-area">
+      <div class="hand-card" id="myCard1"></div>
+      <div class="hand-card" id="myCard2"></div>
+    </div>
+
+    <div class="self-panel">
+      <div class="position-badge" id="selfPositionBadge" style="display:none;">BTN</div>
+      <div class="name" id="selfName">プレイヤー1(自分)</div>
+      <div class="row">
+        <div class="body-icon" title="換金画面へ" onclick="openExchange()">🩸</div>
+        <div class="red-note" id="selfRedNote">赤札(推定): 0</div>
+      </div>
+      <div class="row">
+        <div class="stat" id="selfChip">チップ: 1000</div>
+      </div>
+      <div class="row">
+        <div class="stat" id="selfBet">BET: 0</div>
+      </div>
+    </div>
+
+    <div class="exchange-tab" onclick="openExchange()">換金へ</div>
+
+    <div class="action-bar">
+      <button class="action-btn" id="btnCheck" onclick="doCheck()">チェック</button>
+      <button class="action-btn raise" id="btnRaise" onclick="openRaise()">レイズ</button>
+      <button class="action-btn" id="btnCall" onclick="doCall()">コール</button>
+      <button class="action-btn allin" id="btnAllin" onclick="confirmAction('allin')">オールイン</button>
+      <button class="action-btn lostin" id="btnLostin" onclick="confirmAction('lostin')">ロストイン</button>
+      <button class="action-btn fold" id="btnFold" onclick="confirmAction('fold')">フォールド</button>
+    </div>
+
+    <div class="center-modal-overlay" id="confirmOverlay">
+      <div class="center-modal">
+        <p id="confirmMessage">本当にフォールドしますか?</p>
+        <div class="center-modal-actions">
+          <button onclick="closeConfirm()">キャンセル</button>
+          <button class="confirm-yes" onclick="executeConfirmedAction()">実行</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="center-modal-overlay" id="raiseOverlay">
+      <div class="raise-modal">
+        <h3>レイズ</h3>
+        <label>レイズする量</label>
+        <input type="number" id="raiseAmount" value="40" step="10">
+        <div class="range-note">最大 <span id="raiseMax">80</span></div>
+        <div class="raise-modal-actions">
+          <button onclick="closeRaise()">キャンセル</button>
+          <button class="confirm" onclick="confirmRaise()">確定</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="drawer-overlay" id="drawerOverlay" onclick="closeExchange()"></div>
+    <div class="exchange-drawer" id="exchangeDrawer">
+      <div class="drawer-close" onclick="closeExchange()">戻る</div>
+      <div class="drawer-note">全体図<br>パーツの残を確認<br>(換金済みの部位は黒く表示)</div>
+      <div class="drawer-figure">
+        <svg viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
+          <line x1="88" y1="170" x2="82" y2="270" class="drawer-base-line" stroke-width="16" stroke-linecap="round"/>
+          <line x1="112" y1="170" x2="118" y2="270" class="drawer-base-line" stroke-width="16" stroke-linecap="round"/>
+          <rect x="62" y="78" width="76" height="96" rx="22" class="drawer-base-fill"/>
+          <line id="d_armLeft" x1="64" y1="90" x2="32" y2="172" class="drawer-part-line" stroke-width="15" stroke-linecap="round"/>
+          <line id="d_armRight" x1="136" y1="90" x2="168" y2="172" class="drawer-part-line" stroke-width="15" stroke-linecap="round"/>
+          <circle cx="32" cy="176" r="10" class="drawer-base-fill"/>
+          <circle cx="168" cy="176" r="10" class="drawer-base-fill"/>
+          <line id="d_fingerL1" x1="32" y1="176" x2="14" y2="163" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerL2" x1="32" y1="176" x2="9"  y2="172" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerL3" x1="32" y1="176" x2="9"  y2="182" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerL4" x1="32" y1="176" x2="13" y2="191" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerL5" x1="32" y1="176" x2="19" y2="197" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerR1" x1="168" y1="176" x2="186" y2="163" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerR2" x1="168" y1="176" x2="191" y2="172" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerR3" x1="168" y1="176" x2="191" y2="182" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerR4" x1="168" y1="176" x2="187" y2="191" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <line id="d_fingerR5" x1="168" y1="176" x2="181" y2="197" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
+          <circle cx="100" cy="42" r="27" class="drawer-base-fill"/>
+          <ellipse id="d_earLeft"  cx="71" cy="44" rx="6" ry="10" class="drawer-part"/>
+          <ellipse id="d_earRight" cx="129" cy="44" rx="6" ry="10" class="drawer-part"/>
+          <circle id="d_eyeLeft"  cx="90" cy="38" r="4.5" class="drawer-part"/>
+          <circle id="d_eyeRight" cx="110" cy="38" r="4.5" class="drawer-part"/>
+          <rect id="d_teeth" x="87" y="55" width="26" height="8" rx="2" class="drawer-part"/>
+          <ellipse id="d_lungLeft"  cx="83" cy="112" rx="13" ry="20" class="drawer-part"/>
+          <ellipse id="d_lungRight" cx="117" cy="112" rx="13" ry="20" class="drawer-part"/>
+          <circle id="d_heart" cx="100" cy="118" r="9" class="drawer-part"/>
+        </svg>
+      </div>
+      <div class="drawer-select-row">
+        <select id="drawerPartSelect" onchange="highlightDrawerPart()">
+          <option value="指(左)">指(左)</option>
+          <option value="指(右)">指(右)</option>
+          <option value="歯">歯</option>
+          <option value="耳(左)">耳(左)</option>
+          <option value="耳(右)">耳(右)</option>
+          <option value="肺(左)">肺(左)</option>
+          <option value="肺(右)">肺(右)</option>
+          <option value="目(左)">目(左)</option>
+          <option value="目(右)">目(右)</option>
+          <option value="腕(左)">腕(左)</option>
+          <option value="腕(右)">腕(右)</option>
+          <option value="心臓">心臓</option>
+        </select>
+        <button class="drawer-exchange-btn" id="drawerExchangeBtn" onclick="doDrawerExchange()">換金</button>
+      </div>
+      <div class="drawer-legend">グレー=未換金 / 黒=換金済み(不可逆)</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/colyseus.js@0.15.24/dist/colyseus.js"></script>
+  <script>
+    // ============================================================
+    // 1画面完結(SPA)版。ページ遷移が一切発生しないため、
+    // サーバーとの接続(room)はタイトル→ロビー→対戦卓を通じてずっと同じまま使われる。
+    // ============================================================
+
+    // ▼▼▼ サーバーをRenderにデプロイしたら、ここを実際のURLに書き換えてください ▼▼▼
+    const SERVER_URL = "wss://lost-full-holdem-server.onrender.com";
+    // ▲▲▲ ここまで ▲▲▲
+
+    let client = null;
+    let room = null;
+    let currentPlayerName = 'プレイヤー1';
+    let navigatedAway = false; // 自分から退室した後は切断イベントを無視するためのフラグ
+
+    function getClient() {
+      if (!client) client = new Colyseus.Client(SERVER_URL);
+      return client;
+    }
+
+    const screenDisplays = { 'screen-title': 'block', 'screen-join': 'flex', 'screen-room': 'flex', 'screen-table': 'block' };
+    function showScreen(id) {
+      document.querySelectorAll('.app-screen').forEach(el => el.style.display = 'none');
+      document.getElementById(id).style.display = screenDisplays[id] || 'block';
+    }
+
+    // ---------- タイトル画面 ----------
+    function readNameInput() {
+      const input = document.getElementById('playerNameInput');
+      currentPlayerName = input.value.trim() || input.placeholder;
+    }
+
+    async function startAsGM() {
+      readNameInput();
+      try {
+        room = await getClient().create('poker', {
+          name: currentPlayerName,
+          mode: document.getElementById('modeSelect') ? document.getElementById('modeSelect').value : 'lostfull',
+          startingChips: 1000,
+          maxRounds: 10,
+          bigBlind: 40,
+        });
+      } catch (e) {
+        console.error(e);
+        alert('ルームの作成に失敗しました。少し待ってからもう一度お試しください。');
+        return;
+      }
+      navigatedAway = false;
+      wireRoomEvents();
+      showScreen('screen-room');
+    }
+
+    function goToJoinScreen() {
+      readNameInput();
+      document.getElementById('joinError').textContent = '';
+      joinCode = '';
+      renderJoinCode();
+      showScreen('screen-join');
+    }
+
+    // ---------- ルーム参加(テンキー)画面 ----------
+    let joinCode = '';
+    function pressKey(n) {
+      if (joinCode.length < 4) joinCode += n;
+      renderJoinCode();
+    }
+    function clearJoinCode() {
+      joinCode = '';
+      renderJoinCode();
+    }
+    function renderJoinCode() {
+      document.getElementById('codeDisplay').textContent = (joinCode + '____').slice(0, 4);
+    }
+    async function doJoinRoom() {
+      if (joinCode.length !== 4) {
+        document.getElementById('joinError').textContent = '4桁のコードを入力してください';
+        return;
+      }
+      const btn = document.getElementById('joinConfirmBtn');
+      btn.disabled = true;
+      document.getElementById('joinError').textContent = '';
+      try {
+        const rooms = await getClient().getAvailableRooms('poker');
+        const match = rooms.find(r => r.metadata && r.metadata.code === joinCode);
+        if (!match) throw new Error('room not found for code: ' + joinCode);
+        room = await getClient().joinById(match.roomId, { name: currentPlayerName });
+      } catch (e) {
+        console.error(e);
+        document.getElementById('joinError').textContent = 'ルームが見つからないか、既にゲームが開始されています';
+        btn.disabled = false;
+        return;
+      }
+      btn.disabled = false;
+      navigatedAway = false;
+      wireRoomEvents();
+      showScreen('screen-room');
+    }
+
+    // ---------- ルームロビー画面 ----------
+    let tableInitialized = false;
+
+    function wireRoomEvents() {
+      document.body.classList.toggle('role-participant', false); // isGMはstate同期後に判定するので一旦リセット
+
+      room.onStateChange(function () {
+        renderLobbyPlayers();
+        if (room.state.mode !== undefined) updateStatusLine();
+        if (room.state.gameStarted) {
+          if (!tableInitialized) {
+            tableInitialized = true;
+            wireTableMessages();
+          }
+          renderTable();
+          showScreen('screen-table');
+        }
+      });
+
+      room.onLeave(function () {
+        if (navigatedAway) return;
+        alert('サーバーとの接続が切れました。タイトルに戻ります。');
+        location.reload();
+      });
+
+      document.getElementById('roomIdText').textContent = room.state.roomCode || '----';
+      renderLobbyPlayers();
+      updateStatusLine();
+    }
+
+    function updateStatusLine() {
+      const state = room.state;
+      document.getElementById('statusLine').textContent =
+        `モード: ${state.mode === 'lostfull' ? 'ロストフル' : 'ノーマル'} / 初期チップ: ${state.startingChips} / ラウンド数: ${state.maxRounds} / BB: ${state.bigBlind}(SB: ${state.smallBlind})`;
+    }
+
+    function renderLobbyPlayers() {
+      const list = document.getElementById('playerList');
+      list.innerHTML = '';
+      const players = [];
+      room.state.players.forEach(function (p) { players.push(p); });
+      players.sort(function (a, b) { return a.seatIndex - b.seatIndex; });
+      players.forEach(function (p) {
+        const li = document.createElement('li');
+        li.textContent = p.name + (p.isGM ? '(GM)' : '') + (p.connected ? '' : '(切断中)');
+        list.appendChild(li);
+      });
+
+      const me = room.state.players.get(room.sessionId);
+      const isGM = !!(me && me.isGM);
+      document.body.classList.toggle('role-participant', !isGM);
+
+      const startBtn = document.getElementById('startBtn');
+      startBtn.disabled = !isGM || players.length < 2;
+      startBtn.title = players.length < 2 ? 'プレイヤーが2人以上必要です' : '';
+    }
+
+    function openSettings() {
+      const state = room.state;
+      document.getElementById('modeSelect').value = state.mode;
+      document.getElementById('startingChipsInput').value = state.startingChips;
+      document.getElementById('maxRoundsInput').value = state.maxRounds;
+      document.getElementById('bbAmount').value = state.bigBlind;
+      document.getElementById('sbAmount').textContent = state.smallBlind;
+      document.getElementById('settingsModal').style.display = 'flex';
+    }
+    function closeSettings() {
+      document.getElementById('settingsModal').style.display = 'none';
+    }
+    function confirmSettings() {
+      room.send('updateSettings', {
+        mode: document.getElementById('modeSelect').value,
+        startingChips: Number(document.getElementById('startingChipsInput').value),
+        maxRounds: Number(document.getElementById('maxRoundsInput').value),
+        bigBlind: Number(document.getElementById('bbAmount').value),
+      });
+      closeSettings();
+    }
+
+    function startGame() {
+      room.send('startGame');
+    }
+
+    function leaveRoom() {
+      navigatedAway = true;
+      if (room) room.send('leaveIntentional');
+      if (room) room.leave(true);
+      room = null;
+      tableInitialized = false;
+      showScreen('screen-title');
+    }
+
+    // ---------- 対戦卓画面:カード表記ユーティリティ ----------
+    const SUIT_INFO = {
+      s: { symbol: '♠', red: false },
+      c: { symbol: '♣', red: false },
+      h: { symbol: '♥', red: true },
+      d: { symbol: '♦', red: true }
+    };
+    function parseCard(code) {
+      const suit = code.slice(-1);
+      let rank = code.slice(0, -1);
+      if (rank === 'T') rank = '10';
+      return { rank: rank, suit: suit };
+    }
+    function renderCardEl(el, code) {
+      if (!el) return;
+      if (!code) { el.innerHTML = ''; el.classList.remove('red'); return; }
+      const c = parseCard(code);
+      const info = SUIT_INFO[c.suit] || { symbol: '', red: false };
+      el.innerHTML = '<div>' + c.rank + '</div><div class="suit">' + info.symbol + '</div>';
+      el.classList.toggle('red', info.red);
+    }
+    function miniCardHtml(code) {
+      const c = parseCard(code);
+      const info = SUIT_INFO[c.suit] || { symbol: '', red: false };
+      return '<div style="width:26px;height:38px;background:#fdfdfd;border:1px solid #666;border-radius:3px;' +
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:bold;' +
+        (info.red ? 'color:#c92a2a;' : 'color:#1a1a1a;') + '">' + c.rank +
+        '<span style="font-size:12px;line-height:1;">' + info.symbol + '</span></div>';
+    }
+
+    // ---------- 操作エラーの表示 ----------
+    const actionErrorMessages = {
+      not_your_turn: '自分の番ではありません',
+      not_betting_phase: '今は操作できるタイミングではありません',
+      cannot_act: 'この操作はできません',
+      check_not_allowed: 'コールが必要なためチェックできません',
+      call_not_allowed: '今はコールできません',
+      invalid_raise_amount: 'レイズ額が正しくありません',
+      no_chips: 'チップが残っていません',
+      unknown_action_type: '不明な操作です',
+      arm_restricted: '腕を失っているため、チェック/コール以外は選択できません',
+      lostin_response_required: 'ロストインへの応答(コール/対抗ロストイン/フォールド)が必要です'
+    };
+    let toastTimer = null;
+    function showToast(message) {
+      let toast = document.getElementById('lfhToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'lfhToast';
+        toast.style.cssText = 'position:absolute;top:16px;left:50%;transform:translateX(-50%);' +
+          'background:#2a0808;border:1px solid #b91c1c;color:#f5b5b5;padding:8px 16px;border-radius:6px;' +
+          'font-size:12px;z-index:30;white-space:nowrap;';
+        document.getElementById('screen-table').appendChild(toast);
+      }
+      toast.textContent = message;
+      toast.style.display = 'block';
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(function () { toast.style.display = 'none'; }, 2500);
+    }
+
+    // ---------- 対戦卓:初回だけ登録するメッセージハンドラ ----------
+    function wireTableMessages() {
+      room.onMessage('yourHoleCards', function (message) {
+        renderCardEl(document.getElementById('myCard1'), message.cards[0]);
+        renderCardEl(document.getElementById('myCard2'), message.cards[1]);
+      });
+
+      room.onMessage('actionError', function (message) {
+        showToast(actionErrorMessages[message.reason] || 'その操作はできません');
+      });
+
+      room.onMessage('showdownResult', function (message) {
+        message.results.forEach(function (r) {
+          const el = document.createElement('div');
+          el.className = 'log-line';
+          el.style.color = '#e0d060';
+          el.textContent = message.noShowdown
+            ? (r.name + 'の勝利(ポット' + r.amountWon + 'チップ獲得)')
+            : (r.name + ': ' + r.handName + '(+' + r.amountWon + ')');
+          document.getElementById('gameLog').appendChild(el);
+        });
+        document.getElementById('gameLog').scrollTop = document.getElementById('gameLog').scrollHeight;
+      });
+
+      // ノーマルモードでは身体換金要素を非表示にする
+      if (room.state.mode !== 'lostfull') {
+        document.querySelector('.exchange-tab').style.display = 'none';
+        document.querySelector('.body-icon').style.display = 'none';
+        document.getElementById('selfRedNote').style.display = 'none';
+        document.getElementById('btnLostin').style.display = 'none';
+      }
+    }
+
+    // ---------- 対戦卓:描画 ----------
+    let renderedLogCount = 0;
+
+    function renderTable() {
+      const state = room.state;
+      const me = state.players.get(room.sessionId);
+      if (!me) return;
+
+      document.querySelector('.round-box .val').textContent =
+        Math.max(0, state.maxRounds - state.roundNumber + 1);
+
+      renderOpponents(state);
+      renderSelfPanel(state, me);
+      renderCommunity(state);
+      renderLog(state);
+      renderActionButtons(state, me);
+      if (state.mode === 'lostfull') {
+        renderBodyParts(me);
+        renderLostInBanner(state);
+      }
+    }
+
+    function renderOpponents(state) {
+      const area = document.getElementById('opponentsArea');
+      area.innerHTML = '';
+      const others = [];
+      state.players.forEach(function (p, sessionId) {
+        if (sessionId !== room.sessionId) others.push(p);
+      });
+      others.sort(function (a, b) { return a.seatIndex - b.seatIndex; });
+
+      others.forEach(function (p) {
+        const statusNote = p.isDead ? '(死亡)' : p.isVegetative ? '(廃人)' :
+          p.folded ? '(フォールド)' : p.allIn ? '(オールイン)' : !p.connected ? '(切断中)' : '';
+        let cardsHtml = '';
+        if (p.revealedHoleCards.length === 2) {
+          cardsHtml = '<div style="display:flex;gap:4px;justify-content:center;">' +
+            miniCardHtml(p.revealedHoleCards[0]) + miniCardHtml(p.revealedHoleCards[1]) + '</div>';
+        }
+        const div = document.createElement('div');
+        div.className = 'opponent';
+        div.innerHTML =
+          (p.positionLabel ? '<div class="position-badge">' + p.positionLabel + '</div>' : '') +
+          '<div class="name">' + p.name + statusNote + '</div>' +
+          '<div class="cards">' + cardsHtml + '</div>' +
+          '<div class="stat-line">チップ: ' + p.chips + '</div>' +
+          '<div class="stat-line">BET: ' + p.currentBet + '</div>';
+        area.appendChild(div);
+      });
+    }
+
+    function renderSelfPanel(state, me) {
+      document.getElementById('selfName').textContent = me.name + '(自分)';
+      const badge = document.getElementById('selfPositionBadge');
+      if (me.positionLabel) {
+        badge.textContent = me.positionLabel;
+        badge.style.display = '';
+      } else {
+        badge.style.display = 'none';
+      }
+      document.getElementById('selfChip').textContent = 'チップ: ' + me.chips;
+      document.getElementById('selfBet').textContent = 'BET: ' + me.currentBet;
+      if (me.revealedHoleCards.length === 2) {
+        renderCardEl(document.getElementById('myCard1'), me.revealedHoleCards[0]);
+        renderCardEl(document.getElementById('myCard2'), me.revealedHoleCards[1]);
+      }
+    }
+
+    function renderCommunity(state) {
+      const boxes = document.querySelectorAll('.community-card');
+      for (let i = 0; i < boxes.length; i++) {
+        renderCardEl(boxes[i], state.communityCards[i]);
+      }
+      document.querySelector('.deck-box').innerHTML = '山札<br>' + state.deckRemaining;
+      document.querySelector('.used-box').innerHTML = '使用済み<br>' + state.discardCount;
+    }
+
+    function renderLog(state) {
+      const box = document.getElementById('gameLog');
+      const lines = Array.from(state.log);
+      if (lines.length === renderedLogCount) return;
+      for (let i = renderedLogCount; i < lines.length; i++) {
+        const el = document.createElement('div');
+        el.className = 'log-line';
+        el.textContent = lines[i];
+        box.appendChild(el);
+      }
+      renderedLogCount = lines.length;
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function renderActionButtons(state, me) {
+      const bettingPhase = ['preflop', 'flop', 'turn', 'river'].indexOf(state.phase) !== -1;
+      const isMyTurn = state.actionPlayerId === room.sessionId;
+      const canAct = isMyTurn && bettingPhase && !me.folded && !me.allIn &&
+        !me.isDead && !me.isVegetative && !me.isBusted && !me.isSurrendered;
+      const armRestricted = !!(me.armsLostLeft || me.armsLostRight);
+
+      if (state.lostInActive) {
+        document.getElementById('btnCheck').disabled = true;
+        document.getElementById('btnRaise').disabled = true;
+        document.getElementById('btnAllin').disabled = true;
+        document.getElementById('btnCall').disabled = !canAct;
+        document.getElementById('btnFold').disabled = !canAct || armRestricted;
+        document.getElementById('btnLostin').disabled = !canAct;
+      } else {
+        const raisePending = me.currentBet < state.currentBet;
+        document.getElementById('btnCheck').disabled = !canAct || raisePending;
+        document.getElementById('btnCall').disabled = !canAct || !raisePending;
+        document.getElementById('btnRaise').disabled = !canAct || me.chips <= 0 || armRestricted;
+        document.getElementById('btnAllin').disabled = !canAct || me.chips <= 0 || armRestricted;
+        document.getElementById('btnFold').disabled = !canAct || armRestricted;
+        document.getElementById('btnLostin').disabled = !canAct;
+      }
+    }
+
+    function renderLostInBanner(state) {
+      const banner = document.getElementById('lostInBanner');
+      if (!state.lostInActive) { banner.style.display = 'none'; return; }
+      const declarer = state.players.get(state.lostInDeclarerId);
+      const name = declarer ? declarer.name : '???';
+      banner.innerHTML = 'ロストイン進行中<br>' + name + ' 赤札: ' + state.lostInAmount;
+      banner.style.display = '';
+    }
+
+    // ---------- アクション送信 ----------
+    function doCheck() {
+      if (document.getElementById('btnCheck').disabled) return;
+      room.send('action', { type: 'check' });
+    }
+    function doCall() {
+      if (document.getElementById('btnCall').disabled) return;
+      room.send('action', { type: 'call' });
+    }
+
+    function openRaise() {
+      if (document.getElementById('btnRaise').disabled) return;
+      const state = room.state;
+      const me = state.players.get(room.sessionId);
+      const currentBet = state.currentBet;
+      const minRaiseTo = currentBet > 0 ? currentBet + state.minRaiseUnit : state.minRaiseUnit;
+      const maxRaiseTo = currentBet > 0 ? currentBet * 2 : (me.currentBet + me.chips);
+      const input = document.getElementById('raiseAmount');
+      input.min = minRaiseTo;
+      input.max = maxRaiseTo;
+      input.step = state.minRaiseUnit;
+      input.value = Math.min(Math.max(minRaiseTo, currentBet + state.minRaiseUnit), maxRaiseTo);
+      document.getElementById('raiseMax').textContent = maxRaiseTo;
+      document.getElementById('raiseOverlay').classList.add('open');
+    }
+    function closeRaise() {
+      document.getElementById('raiseOverlay').classList.remove('open');
+    }
+    function confirmRaise() {
+      const amount = Number(document.getElementById('raiseAmount').value);
+      room.send('action', { type: 'raise', amount: amount });
+      closeRaise();
+    }
+
+    // ---------- フォールド・オールイン・ロストイン・降参・退室の再確認 ----------
+    const confirmMessages = {
+      fold: '本当にフォールドしますか?',
+      allin: '本当にオールインしますか?',
+      lostin: '本当にロストインしますか?(残りの身体パーツを全て失います)',
+      lostin_counter: '本当に対抗ロストインしますか?(残りの身体パーツを全て失います)',
+      surrender: '本当に降参しますか?(このゲームから脱落し、観戦モードになります)',
+      leave: '本当に退室しますか?(タイトル画面に戻ります)'
+    };
+    let pendingAction = null;
+
+    function confirmAction(action) {
+      if (action === 'fold' && document.getElementById('btnFold').disabled) return;
+      if (action === 'allin' && document.getElementById('btnAllin').disabled) return;
+      if (action === 'lostin') {
+        if (document.getElementById('btnLostin').disabled) return;
+        if (room && room.state && room.state.lostInActive) action = 'lostin_counter';
+      }
+      pendingAction = action;
+      document.getElementById('confirmMessage').textContent = confirmMessages[action];
+      document.getElementById('confirmOverlay').classList.add('open');
+    }
+    function closeConfirm() {
+      pendingAction = null;
+      document.getElementById('confirmOverlay').classList.remove('open');
+    }
+    function executeConfirmedAction() {
+      if (pendingAction === 'fold') {
+        room.send('action', { type: 'fold' });
+      } else if (pendingAction === 'allin') {
+        room.send('action', { type: 'allin' });
+      } else if (pendingAction === 'lostin' || pendingAction === 'lostin_counter') {
+        room.send('action', { type: 'lostin' });
+      } else if (pendingAction === 'surrender') {
+        room.send('surrender');
+        room.send('leaveIntentional');
+        navigatedAway = true;
+        room = null;
+        tableInitialized = false;
+        showScreen('screen-title');
+      } else if (pendingAction === 'leave') {
+        leaveRoom();
+      }
+      closeConfirm();
+    }
+
+    // ---------- 身体パーツ換金ドロワー ----------
+    function openExchange() {
+      document.getElementById('exchangeDrawer').classList.add('open');
+      document.getElementById('drawerOverlay').classList.add('open');
+    }
+    function closeExchange() {
+      document.getElementById('exchangeDrawer').classList.remove('open');
+      document.getElementById('drawerOverlay').classList.remove('open');
+    }
+
+    const PART_DEFS = {
+      "指(左)": { part: "finger", side: "left", value: 30 },
+      "指(右)": { part: "finger", side: "right", value: 30 },
+      "歯": { part: "tooth", value: 200, ids: ["d_teeth"] },
+      "耳(左)": { part: "ear", side: "left", value: 70, ids: ["d_earLeft"] },
+      "耳(右)": { part: "ear", side: "right", value: 70, ids: ["d_earRight"] },
+      "肺(左)": { part: "lung", side: "left", value: 150, ids: ["d_lungLeft"] },
+      "肺(右)": { part: "lung", side: "right", value: 150, ids: ["d_lungRight"] },
+      "目(左)": { part: "eye", side: "left", value: 250, ids: ["d_eyeLeft"] },
+      "目(右)": { part: "eye", side: "right", value: 250, ids: ["d_eyeRight"] },
+      "腕(左)": { part: "arm", side: "left", value: 250, ids: ["d_armLeft", "d_fingerL1", "d_fingerL2", "d_fingerL3", "d_fingerL4", "d_fingerL5"] },
+      "腕(右)": { part: "arm", side: "right", value: 250, ids: ["d_armRight", "d_fingerR1", "d_fingerR2", "d_fingerR3", "d_fingerR4", "d_fingerR5"] },
+      "心臓": { part: "heart", value: 750, ids: ["d_heart"] }
+    };
+    const LEFT_FINGER_IDS = ["d_fingerL1", "d_fingerL2", "d_fingerL3", "d_fingerL4", "d_fingerL5"];
+    const RIGHT_FINGER_IDS = ["d_fingerR1", "d_fingerR2", "d_fingerR3", "d_fingerR4", "d_fingerR5"];
+
+    function isPartAvailable(key, me) {
+      const def = PART_DEFS[key];
+      if (!def || !me) return false;
+      switch (def.part) {
+        case 'finger': return (def.side === 'left' ? me.fingersLostLeft : me.fingersLostRight) < 5;
+        case 'tooth': return !me.teethLost;
+        case 'ear': return !(def.side === 'left' ? me.earsLostLeft : me.earsLostRight);
+        case 'lung': return !(def.side === 'left' ? me.lungsLostLeft : me.lungsLostRight);
+        case 'eye': return !(def.side === 'left' ? me.eyesLostLeft : me.eyesLostRight);
+        case 'arm': return !(def.side === 'left' ? me.armsLostLeft : me.armsLostRight);
+        case 'heart': return !me.heartLost;
+        default: return false;
+      }
+    }
+
+    function computeRedNote(me) {
+      if (!me) return 0;
+      let total = 0;
+      total += (5 - me.fingersLostLeft) * 30 + (5 - me.fingersLostRight) * 30;
+      if (!me.teethLost) total += 200;
+      if (!me.earsLostLeft) total += 70;
+      if (!me.earsLostRight) total += 70;
+      if (!me.lungsLostLeft) total += 150;
+      if (!me.lungsLostRight) total += 150;
+      if (!me.eyesLostLeft) total += 250;
+      if (!me.eyesLostRight) total += 250;
+      if (!me.armsLostLeft) total += 250;
+      if (!me.armsLostRight) total += 250;
+      return total;
+    }
+
+    function setPartLost(id, lost) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.classList.toggle('lost', !!lost);
+      if (lost) el.classList.remove('highlight');
+    }
+
+    function clearDrawerHighlight() {
+      document.querySelectorAll('.drawer-part.highlight, .drawer-part-line.highlight').forEach(el => el.classList.remove('highlight'));
+    }
+    function highlightDrawerPart() {
+      clearDrawerHighlight();
+      const key = document.getElementById('drawerPartSelect').value;
+      const def = PART_DEFS[key];
+      if (!def) return;
+      const ids = def.part === 'finger'
+        ? (def.side === 'left' ? LEFT_FINGER_IDS : RIGHT_FINGER_IDS)
+        : (def.ids || []);
+      ids.forEach(function (id) {
+        const el = document.getElementById(id);
+        if (el && !el.classList.contains('lost')) el.classList.add('highlight');
+      });
+    }
+
+    function renderBodyParts(me) {
+      if (!me) return;
+      LEFT_FINGER_IDS.forEach(function (id, i) { setPartLost(id, i < me.fingersLostLeft); });
+      RIGHT_FINGER_IDS.forEach(function (id, i) { setPartLost(id, i < me.fingersLostRight); });
+      setPartLost('d_teeth', me.teethLost);
+      setPartLost('d_earLeft', me.earsLostLeft);
+      setPartLost('d_earRight', me.earsLostRight);
+      setPartLost('d_lungLeft', me.lungsLostLeft);
+      setPartLost('d_lungRight', me.lungsLostRight);
+      setPartLost('d_eyeLeft', me.eyesLostLeft);
+      setPartLost('d_eyeRight', me.eyesLostRight);
+      setPartLost('d_armLeft', me.armsLostLeft);
+      setPartLost('d_armRight', me.armsLostRight);
+      setPartLost('d_heart', me.heartLost);
+
+      document.getElementById('selfRedNote').textContent = '赤札(推定): ' + computeRedNote(me);
+
+      const select = document.getElementById('drawerPartSelect');
+      Array.from(select.options).forEach(function (o) { o.disabled = !isPartAvailable(o.value, me); });
+      if (!isPartAvailable(select.value, me)) {
+        const nextOpt = Array.from(select.options).find(function (o) { return !o.disabled; });
+        if (nextOpt) select.value = nextOpt.value;
+      }
+      document.getElementById('drawerExchangeBtn').disabled = !Array.from(select.options).some(function (o) { return !o.disabled; });
+      highlightDrawerPart();
+    }
+
+    function doDrawerExchange() {
+      if (!room) return;
+      const select = document.getElementById('drawerPartSelect');
+      const key = select.value;
+      const def = PART_DEFS[key];
+      const me = room.state.players.get(room.sessionId);
+      if (!def || !isPartAvailable(key, me)) return;
+      const payload = { part: def.part };
+      if (def.side) payload.side = def.side;
+      room.send('exchangeBodyPart', payload);
+    }
+    highlightDrawerPart();
+  </script>
 </body>
 </html>

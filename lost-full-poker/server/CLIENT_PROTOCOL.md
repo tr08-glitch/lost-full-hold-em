@@ -1,26 +1,26 @@
 # クライアント連携ガイド(サーバー⇔UI)
 
-対戦卓画面(table.html)などの実クライアントを、このサーバー(`PokerRoom`)につなぐ際の連携仕様。
-既存のモックアップ(table.html)はlocalStorageで疑似的に動いているだけなので、実クライアント化する際は
-この仕様に沿って「RoomStateの購読」と「メッセージの送受信」に置き換える。
+実クライアント(`mockups/game.html`、タイトル〜対戦卓が1画面で完結するSPA)を、このサーバー(`PokerRoom`)に
+つなぐ際の連携仕様。
 
 ## 接続
 
-Colyseus.jsクライアントを使用する想定。
+Colyseus.jsクライアントを使用する想定。`game.html`では画面遷移(ページ遷移)が発生しないため、
+ルーム作成・参加時に一度だけ接続すれば、ゲームが終わるまで同じ接続を保持し続ければよい
+(以前の複数HTMLファイル構成のような、ページ遷移をまたいだ再接続の仕組みは不要)。
 
 ```js
 import { Client } from "colyseus.js";
 
-const client = new Client("ws://<サーバーのホスト>:<ポート>");
-const room = await client.joinOrCreate("poker", {
-  name: "プレイヤー名", // room-create.html / room-join.htmlで入力した名前
-});
+const client = new Client("wss://<サーバーのホスト>");
+const room = await client.create("poker", { name: "プレイヤー名", ... }); // GM
+// または
+const room = await client.joinById(roomId, { name: "プレイヤー名" }); // 参加者
 ```
 
 - **ルームコードの方式**:参加者が入力するのは**4桁の数字コード**(`RoomState.roomCode`)。Colyseus内部の`roomId`(英数字)とは別物で、サーバー(`PokerRoom.onCreate`)がルーム作成のたびに重複しないよう発行し、`room.setMetadata({ code })`で公開する
-- GM(ルーム作成)は `client.create("poker", options)`。参加者はまず `client.getAvailableRooms("poker")` で現在募集中のルーム一覧を取得し、`metadata.code`が入力されたコードと一致するものを探して、その実際の`roomId`で`client.joinById(roomId, { name })`する(この一連の処理は`LFH.joinRoomByCode(code, options)`にまとめてある)
-- ページ遷移(title→room-create→table)のたびにJSの実行コンテキストがリセットされる(＝WebSocket接続が切れる)ため、`room.roomId` / `room.sessionId` / `room.reconnectionToken` を`sessionStorage`に保存しておき、次のページでは`client.reconnect(reconnectionToken)`で同じセッションに復帰する。この一連の処理は`mockups/js/lfh-client.js`にまとめてある(`LFH.createRoom` / `LFH.joinRoom` / `LFH.joinRoomByCode` / `LFH.reconnectRoom`)
-- サーバー側(`PokerRoom.onLeave`)は、非明示的な切断(ページ遷移含む)に対して60秒間の再接続猶予を`allowReconnection`で与えるよう実装済み。「退室」ボタンなど明示的な離脱時は`room.leave(true)`(consented=true)を呼ぶことで、猶予なしで即座に処理される
+- GM(ルーム作成)は `client.create("poker", options)`。参加者はまず `client.getAvailableRooms("poker")` で現在募集中のルーム一覧を取得し、`metadata.code`が入力されたコードと一致するものを探して、その実際の`roomId`で`client.joinById(roomId, { name })`する
+- サーバー側(`PokerRoom.onLeave`)は、非明示的な切断(通信の瞬断など)に対して60秒間の再接続猶予を`allowReconnection`で与えるよう実装済み。「退室」「降参」など明示的な離脱時は、先に`leaveIntentional`メッセージを送ってから`room.leave(true)`を呼ぶことで、猶予なしで即座に処理される(詳細は後述の`leaveIntentional`の項)
 - `options.mode` / `options.bigBlind` / `options.startingChips` / `options.maxRounds` は
   ルーム作成時(`client.create`の第2引数)にGMが指定する。ゲーム開始前であれば`updateSettings`メッセージで変更も可能
 
@@ -161,12 +161,13 @@ room.send("updateSettings", {
 全てのキーが任意(渡さなかった項目は変更されない)。ジョーカー関連の設定はサーバー未実装のため、送っても反映されない。
 
 ## 実クライアント実装済みの範囲(mockups/)
-title.html → room-create.html(GM)/ room-join.html → table.html の一連の画面は、
-`mockups/js/lfh-client.js` 経由でこのサーバーに実接続するよう実装済み。
-- **サーバーURLの設定**:`mockups/js/lfh-client.js` 先頭の `SERVER_URL` を、実際にデプロイしたサーバーの
-  WebSocket URL(例: `wss://your-app.onrender.com`)に書き換える必要がある。デフォルトは `ws://localhost:2567`
+`mockups/index.html` は、タイトル〜ルーム作成/参加〜対戦卓までが1つのHTMLファイル内で画面切り替え(ページ遷移なし)
+する構成になっており、このサーバーに実接続するよう実装済み。
+- **サーバーURLの設定**:`index.html` 冒頭の `SERVER_URL` を、実際にデプロイしたサーバーの
+  WebSocket URL(例: `wss://your-app.onrender.com`)に書き換える必要がある
 - ルームコードは4桁の数字(`RoomState.roomCode`)。前述の通り、実際のjoinには内部の`roomId`を使う
-- ページ遷移のたびに再接続(`client.reconnect`)する方式のため、リロードにも耐えられる
+- ページ遷移が発生しないため、接続は一度確立したらゲームが終わるまでそのまま保持される
+  (以前の複数ページ構成で問題になっていた「ページ遷移のたびの再接続」は発生しない)
 
 ### `exchangeBodyPart`(ロストフルモードのみ、いつでも送信可能)
 ```js
@@ -220,4 +221,4 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 ## 今後の課題(未着手)
 - ジョーカーの有無・枚数設定はサーバー未実装
 - ルームコード(4桁)を人に伝える手段(コピー機能など)はUI未実装。今は画面に表示するのみ
-- チャット機能はサーバー未実装(room-create.htmlのチャットUIは見た目のみ)
+- チャット機能はサーバー未実装(ルームロビー画面のチャットUIは見た目のみ)
