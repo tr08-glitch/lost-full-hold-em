@@ -494,6 +494,7 @@
       document.body.classList.toggle('role-participant', false); // isGMはstate同期後に判定するので一旦リセット
 
       room.onStateChange(function () {
+        document.getElementById('roomIdText').textContent = room.state.roomCode || '----';
         renderLobbyPlayers();
         if (room.state.mode !== undefined) updateStatusLine();
         if (room.state.gameStarted) {
@@ -662,14 +663,15 @@
         });
         document.getElementById('gameLog').scrollTop = document.getElementById('gameLog').scrollHeight;
       });
+    }
 
-      // ノーマルモードでは身体換金要素を非表示にする
-      if (room.state.mode !== 'lostfull') {
-        document.querySelector('.exchange-tab').style.display = 'none';
-        document.querySelector('.body-icon').style.display = 'none';
-        document.getElementById('selfRedNote').style.display = 'none';
-        document.getElementById('btnLostin').style.display = 'none';
-      }
+    /** ノーマル/ロストフルで表示を切り替える身体パーツ関連の要素。毎回の描画で判定し直す */
+    function applyModeVisibility(state) {
+      const isLostFull = state.mode === 'lostfull';
+      document.querySelector('.exchange-tab').style.display = isLostFull ? '' : 'none';
+      document.querySelector('.body-icon').style.display = isLostFull ? '' : 'none';
+      document.getElementById('selfRedNote').style.display = isLostFull ? '' : 'none';
+      document.getElementById('btnLostin').style.display = isLostFull ? '' : 'none';
     }
 
     // ---------- 対戦卓:描画 ----------
@@ -683,6 +685,7 @@
       document.querySelector('.round-box .val').textContent =
         Math.max(0, state.maxRounds - state.roundNumber + 1);
 
+      applyModeVisibility(state);
       renderOpponents(state);
       renderSelfPanel(state, me);
       renderCommunity(state);
@@ -998,6 +1001,10 @@
       room.send('exchangeBodyPart', payload);
     }
     highlightDrawerPart();
+
+    // ページ読み込み時、必ずタイトル画面から始める(これが無いとCSSの兼ね合いで
+    // 別の画面が意図せず表示されてしまうため)
+    showScreen('screen-title');
   </script>
 </body>
 </html>
