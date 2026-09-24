@@ -3,28 +3,35 @@
  * カードは "As", "Th", "9d", "2c" のような rank+suit の2文字表記(pokersolverの形式に合わせる)。
  * rank: A,K,Q,J,T,9,8,7,6,5,4,3,2 / suit: s,h,d,c
  *
- * ジョーカーはロストフルモード側の未確定事項(役判定上の扱いが未定義)のため、
- * このステップ(ノーマルモード標準52枚)では未対応。TODOとして残す。
+ * ジョーカーは "JOKER1","JOKER2",... という専用の表記(通常カードと衝突しない)。
+ * 役判定上は完全ワイルドカードとして扱う(server/src/logic/handEvaluator.ts側で解決する)。
  */
 
 const RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"];
 const SUITS = ["s", "h", "d", "c"];
 
+export function isJokerCode(code: string): boolean {
+  return code.startsWith("JOKER");
+}
+
 export class Deck {
   private cards: string[] = [];
   private discardPile: string[] = [];
 
-  constructor() {
-    this.reset();
+  constructor(jokerCount: number = 0) {
+    this.reset(jokerCount);
   }
 
-  /** 標準52枚を作り直してシャッフルする(使用済み含め全て回収) */
-  reset(): void {
+  /** 標準52枚(+指定枚数のジョーカー)を作り直してシャッフルする(使用済み含め全て回収) */
+  reset(jokerCount: number = 0): void {
     this.cards = [];
     for (const r of RANKS) {
       for (const s of SUITS) {
         this.cards.push(r + s);
       }
+    }
+    for (let i = 1; i <= jokerCount; i++) {
+      this.cards.push("JOKER" + i);
     }
     this.discardPile = [];
     this.shuffle();

@@ -46,6 +46,8 @@ RoomState {
   maxRounds: number
   startingChips: number
   mode: "normal"|"lostfull"
+  jokerEnabled: boolean            // ジョーカーの有無
+  jokerCount: number               // ジョーカーの枚数(jokerEnabled=trueの時のみ意味を持つ)
   lastAggressorId: string
   log: string[]                    // 直近の進行ログ(最大50件)
   gameStarted: boolean
@@ -73,6 +75,8 @@ PlayerState {
 ```
 
 カード表記は `"As"`(ランク+スート、T=10、スートはs/h/d/c)。UI側で絵柄・数字に変換すること。
+ジョーカーは `"JOKER1"`,`"JOKER2"`,... という専用表記(`jokerEnabled`時のみ山札に含まれる)。役判定上は完全ワイルドカードとして
+サーバー側で解決済みの結果が返るため、クライアント側でワイルド処理をする必要はない(見た目だけ専用デザインにすればよい)。
 
 ### UI実装の目安
 - `room.state.players.onAdd/onRemove` で参加者一覧を描画
@@ -149,6 +153,27 @@ room.send("leaveIntentional");
 届くことがあり信用できなかったため、サーバー側はこのメッセージの有無を正としている(`onLeave`の`consented`引数は
 現在参照していない)。これを送らずに切断した場合は、通常のページ遷移とみなされ60秒間の再接続猶予が与えられる。
 
+### `chat`
+```js
+room.send("chat", { target: "all", text: "こんにちは" });      // 全体チャット
+room.send("chat", { target: "<相手のsessionId>", text: "..." }); // 個別チャット
+```
+`target`省略時は`"all"`(全体)扱い。全体チャットは`broadcast`で全員に届き、個別チャットは送信者と指定した
+相手のsessionIdの2人にしか届かない(混沌の「宛先選択・全体は白文字/個別は青文字」の仕組みと同じ)。
+テキストは200文字で切り詰められる。存在しないsessionIdを指定した場合は無視される。
+
+サーバーからの配信メッセージ(`room.onMessage("chat", ...)`で受け取る)の形:
+```js
+{
+  fromId: "...",       // 送信者のsessionId
+  fromName: "...",     // 送信者の表示名
+  text: "...",
+  isPrivate: false,    // true=個別チャット
+  toId: "...",         // 個別チャットの場合のみ:宛先のsessionId
+  toName: "...",       // 個別チャットの場合のみ:宛先の表示名
+}
+```
+
 ### `updateSettings`(GMのみ有効、ゲーム開始前のみ)
 ```js
 room.send("updateSettings", {
@@ -158,7 +183,7 @@ room.send("updateSettings", {
   bigBlind: 40, // smallBlind/minRaiseUnitはサーバー側で自動的に半額に再計算される
 });
 ```
-全てのキーが任意(渡さなかった項目は変更されない)。ジョーカー関連の設定はサーバー未実装のため、送っても反映されない。
+全てのキーが任意(渡さなかった項目は変更されない)。
 
 ## 実クライアント実装済みの範囲(mockups/)
 `mockups/index.html` は、タイトル〜ルーム作成/参加〜対戦卓までが1つのHTMLファイル内で画面切り替え(ページ遷移なし)
@@ -219,6 +244,5 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 `actionError`の`reason: "lostin_response_required"`は、`lostInActive`中に上記3種類以外の`action`を送った場合に返る。
 
 ## 今後の課題(未着手)
-- ジョーカーの有無・枚数設定はサーバー未実装
 - ルームコード(4桁)を人に伝える手段(コピー機能など)はUI未実装。今は画面に表示するのみ
 - チャット機能はサーバー未実装(ルームロビー画面のチャットUIは見た目のみ)

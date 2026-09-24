@@ -70,7 +70,7 @@
   .opponents { position:absolute; top:16px; left:160px; right:16px; display:flex; gap:16px; }
   .opponent { flex:1; max-width:180px; background:#141414; border:1px solid #333; border-radius:6px; padding:10px; text-align:center; position:relative; }
   .opponent .name { font-size:12px; color:#999; margin-bottom:6px; }
-  .opponent .cards { height:70px; border:1px dashed #333; border-radius:4px; margin-bottom:8px; }
+  .opponent .cards { height:44px; display:flex; align-items:center; justify-content:center; gap:4px; margin-bottom:8px; }
   .opponent .stat-line { font-size:11px; background:#1a1a1a; border:1px solid #333; border-radius:4px; padding:3px 6px; margin-top:4px; }
   .opponent .stat-line.red { color:#e05252; }
   .position-badge { position:absolute; top:-10px; right:-10px; min-width:26px; height:20px; padding:0 6px; border-radius:10px; background:#f0d060; color:#1a1a00; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 0 6px #000000aa; z-index:2; white-space:nowrap; }
@@ -80,10 +80,33 @@
   .top-right-actions { position:absolute; top:16px; right:16px; display:flex; gap:8px; z-index:5; }
   .top-right-actions button { background:#1a1a1a; border:1px solid #666; color:#ccc; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
   .top-right-actions button.surrender { border-color:#b91c1c; color:#e05252; }
+
+  .chat-flow { position:absolute; top:70px; left:16px; width:136px; max-height:200px; overflow:hidden; font-size:11px; z-index:4; pointer-events:none; }
+  .chat-flow .chat-line { background:#00000099; padding:2px 6px; border-radius:3px; margin-bottom:3px; word-break:break-word; }
+  .chat-flow .chat-line.public { color:#eee; }
+  .chat-flow .chat-line.private { color:#6f9fff; }
+
+  .chat-history-overlay { display:none; position:absolute; top:70px; left:16px; width:260px; max-height:320px; background:#141414; border:1px solid #444; border-radius:8px; padding:10px; z-index:15; flex-direction:column; }
+  .chat-history-overlay.open { display:flex; }
+  .chat-history-messages { flex:1; overflow-y:auto; font-size:12px; margin-bottom:8px; max-height:220px; }
+  .chat-history-messages .chat-line { margin-bottom:4px; word-break:break-word; }
+  .chat-history-messages .chat-line.public { color:#eee; }
+  .chat-history-messages .chat-line.private { color:#6f9fff; }
+  .chat-history-input-row { display:flex; gap:4px; }
+  .chat-history-input-row select { width:80px; flex-shrink:0; }
+  .chat-history-input-row input { flex:1; }
+  .chat-history-input-row button { flex-shrink:0; padding:6px 10px; font-size:12px; }
   .hand-area { position:absolute; bottom:120px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:flex-end; }
-  .hand-card { width:60px; height:90px; background:#fdfdfd; border:1px solid #666; border-radius:6px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:bold; font-size:20px; color:#1a1a1a; }
-  .hand-card.red { color:#c92a2a; }
-  .hand-card .suit { font-size:22px; margin-top:2px; }
+  .hand-card, .community-card, .opponent-mini-card {
+    background-image: url('assets/card-face-bg.jpg'); background-size: cover; background-position:center;
+    border: 1px solid #666; border-radius:6px; box-shadow:0 2px 4px #00000088; position:relative; overflow:hidden;
+  }
+  .hand-card.face-down, .community-card.face-down, .opponent-mini-card.face-down {
+    background-image: url('assets/card-back.jpg');
+  }
+  .hand-card { width:60px; height:90px; }
+  .community-card { width:48px; height:72px; }
+  .opponent-mini-card { width:26px; height:38px; border-radius:3px; }
   .hand-label { position:absolute; bottom:90px; left:50%; transform:translateX(-50%); font-size:11px; color:#888; }
   .self-panel { position:absolute; bottom:16px; left:16px; background:#141414; border:1px solid #b91c1c; border-radius:8px; padding:12px; width:220px; }
   .self-panel .name { font-size:13px; color:#999; margin-bottom:8px; }
@@ -93,9 +116,6 @@
   .stat { background:#1a1a1a; border:1px solid #444; border-radius:4px; padding:4px 10px; font-size:13px; flex:1; }
   .community-area { position:absolute; top:48%; left:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:24px; }
   .community-cards { display:flex; gap:6px; }
-  .community-card { width:48px; height:72px; background:#1a1a1a; border:1px solid #555; border-radius:5px; display:flex; flex-direction:column; align-items:center; justify-content:center; font-weight:bold; font-size:15px; color:#eee; }
-  .community-card.red { color:#e05252; }
-  .community-card .suit { font-size:15px; margin-top:1px; }
   .deck-box { width:48px; height:72px; background:#1a1a1a; border:1px solid #b91c1c; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#e05252; text-align:center; }
   .used-box { width:48px; height:72px; background:#1a1a1a; border:1px dashed #555; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:11px; color:#777; text-align:center; }
   .exchange-tab { position:absolute; top:50%; right:0; transform:translateY(-50%); background:#141414; border:1px solid #b91c1c; border-right:none; border-radius:8px 0 0 8px; padding:16px 10px; writing-mode:vertical-rl; cursor:pointer; font-size:13px; color:#e05252; z-index:5; }
@@ -141,6 +161,24 @@
   .raise-modal-actions { display:flex; gap:8px; margin-top:18px; }
   .raise-modal-actions button { flex:1; padding:10px; border-radius:6px; cursor:pointer; background:#1a1a1a; border:1px solid #666; color:#eee; }
   .raise-modal-actions button.confirm { border-color:#e0a752; color:#e0a752; }
+
+  .action-turn-banner {
+    position:absolute; top:58%; left:50%; transform:translate(-50%,-50%) scale(0.85);
+    font-size:46px; font-weight:bold; letter-spacing:6px; color:#e05252;
+    text-shadow:0 0 18px #b91c1c; z-index:25;
+    opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
+    font-family: Georgia, serif;
+  }
+  .action-turn-banner.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
+
+  .phase-banner {
+    position:absolute; top:40%; left:50%; transform:translate(-50%,-50%) scale(0.85);
+    font-size:40px; font-weight:bold; letter-spacing:8px; color:#e0d060;
+    text-shadow:0 0 18px #8a7a1c; z-index:25;
+    opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
+    font-family: Georgia, serif;
+  }
+  .phase-banner.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
 </style>
 </head>
 <body>
@@ -200,12 +238,12 @@
         <ul class="players" id="playerList"></ul>
       </div>
       <div class="chat-box">
-        <label>チャット(未実装:表示のみ)</label>
-        <div style="flex:1;"></div>
+        <label>チャット</label>
+        <div style="flex:1; overflow-y:auto;" id="lobbyChatMessages"></div>
         <div class="chat-input-row">
-          <select style="width:100px;"><option>全体</option></select>
-          <input type="text" placeholder="チャット入力">
-          <button class="chat-send-btn primary">送信</button>
+          <select style="width:100px;" id="lobbyChatTarget"><option value="all">全体</option></select>
+          <input type="text" id="lobbyChatInput" placeholder="チャット入力" onkeydown="if(event.key==='Enter') sendLobbyChat()">
+          <button class="chat-send-btn primary" onclick="sendLobbyChat()">送信</button>
         </div>
       </div>
     </div>
@@ -239,10 +277,8 @@
         <label>ジョーカーの枚数</label>
         <input type="number" id="jokerCount" value="2" min="1" max="4" disabled>
       </div>
-      <div style="font-size:10px; color:#666; margin:-6px 0 12px;">※ジョーカー設定は未実装のため、現時点では反映されません</div>
       <div class="toggle-row"><span>他プレイヤーの赤札推定額を表示</span><input type="checkbox" checked></div>
       <div class="toggle-row"><span>他プレイヤーのチップ額を表示</span><input type="checkbox" checked></div>
-      <div class="toggle-row"><span>他プレイヤーのBET額を表示</span><input type="checkbox" checked></div>
       <div class="modal-actions">
         <button onclick="closeSettings()">キャンセル</button>
         <button class="primary" onclick="confirmSettings()">確定</button>
@@ -252,12 +288,25 @@
 
   <!-- ================= 対戦卓画面 ================= -->
   <div class="app-screen screen-table" id="screen-table">
+    <div class="phase-banner" id="phaseBanner"></div>
+    <div class="action-turn-banner" id="actionTurnBanner">Action</div>
     <div class="round-box">残りラウンド<br><span class="val">-</span></div>
     <div class="round-box" id="lostInBanner" style="display:none; top:64px; border-color:#b91c1c; color:#e05252;"></div>
 
     <div class="top-right-actions">
       <button class="surrender" onclick="confirmAction('surrender')">降参</button>
       <button onclick="confirmAction('leave')">退室</button>
+      <button id="chatToggleBtn" onclick="toggleChatHistory()">表示</button>
+    </div>
+
+    <div class="chat-flow" id="chatFlow"></div>
+    <div class="chat-history-overlay" id="chatHistoryOverlay">
+      <div class="chat-history-messages" id="chatHistoryMessages"></div>
+      <div class="chat-history-input-row">
+        <select id="tableChatTarget"><option value="all">全体</option></select>
+        <input type="text" id="tableChatInput" placeholder="チャット入力" onkeydown="if(event.key==='Enter') sendTableChat()">
+        <button onclick="sendTableChat()">送信</button>
+      </div>
     </div>
 
     <div class="opponents" id="opponentsArea"></div>
@@ -269,19 +318,19 @@
     <div class="community-area">
       <div class="used-box">使用済</div>
       <div class="community-cards">
-        <div class="community-card"></div>
-        <div class="community-card"></div>
-        <div class="community-card"></div>
-        <div class="community-card"></div>
-        <div class="community-card"></div>
+        <div class="community-card face-down"></div>
+        <div class="community-card face-down"></div>
+        <div class="community-card face-down"></div>
+        <div class="community-card face-down"></div>
+        <div class="community-card face-down"></div>
       </div>
       <div class="deck-box">山札<br>-</div>
     </div>
 
     <div class="hand-label">ホールカード</div>
     <div class="hand-area">
-      <div class="hand-card" id="myCard1"></div>
-      <div class="hand-card" id="myCard2"></div>
+      <div class="hand-card face-down" id="myCard1"></div>
+      <div class="hand-card face-down" id="myCard2"></div>
     </div>
 
     <div class="self-panel">
@@ -430,6 +479,8 @@
           startingChips: 1000,
           maxRounds: 10,
           bigBlind: 40,
+          jokerEnabled: document.getElementById('jokerToggle') ? document.getElementById('jokerToggle').checked : false,
+          jokerCount: document.getElementById('jokerCount') ? Number(document.getElementById('jokerCount').value) : 2,
         });
       } catch (e) {
         console.error(e);
@@ -513,6 +564,13 @@
         location.reload();
       });
 
+      room.onMessage('chat', function (payload) {
+        chatMessages.push(payload);
+        renderLobbyChat();
+        appendChatToFlow(payload);
+        appendChatToHistory(payload);
+      });
+
       document.getElementById('roomIdText').textContent = room.state.roomCode || '----';
       renderLobbyPlayers();
       updateStatusLine();
@@ -543,6 +601,8 @@
       const startBtn = document.getElementById('startBtn');
       startBtn.disabled = !isGM || players.length < 2;
       startBtn.title = players.length < 2 ? 'プレイヤーが2人以上必要です' : '';
+
+      updateChatTargetOptions();
     }
 
     function openSettings() {
@@ -552,6 +612,9 @@
       document.getElementById('maxRoundsInput').value = state.maxRounds;
       document.getElementById('bbAmount').value = state.bigBlind;
       document.getElementById('sbAmount').textContent = state.smallBlind;
+      document.getElementById('jokerToggle').checked = state.jokerEnabled;
+      document.getElementById('jokerCount').value = state.jokerCount;
+      document.getElementById('jokerCount').disabled = !state.jokerEnabled;
       document.getElementById('settingsModal').style.display = 'flex';
     }
     function closeSettings() {
@@ -563,6 +626,8 @@
         startingChips: Number(document.getElementById('startingChipsInput').value),
         maxRounds: Number(document.getElementById('maxRoundsInput').value),
         bigBlind: Number(document.getElementById('bbAmount').value),
+        jokerEnabled: document.getElementById('jokerToggle').checked,
+        jokerCount: Number(document.getElementById('jokerCount').value),
       });
       closeSettings();
     }
@@ -577,10 +642,21 @@
       if (room) room.leave(true);
       room = null;
       tableInitialized = false;
+      lastActionPlayerId = null;
+      lastPhase = null;
+      document.getElementById('actionTurnBanner').classList.remove('show');
+      document.getElementById('phaseBanner').classList.remove('show');
+      chatMessages = [];
+      const lobbyMsgs = document.getElementById('lobbyChatMessages');
+      const flowMsgs = document.getElementById('chatFlow');
+      const historyMsgs = document.getElementById('chatHistoryMessages');
+      if (lobbyMsgs) lobbyMsgs.innerHTML = '';
+      if (flowMsgs) flowMsgs.innerHTML = '';
+      if (historyMsgs) historyMsgs.innerHTML = '';
       showScreen('screen-title');
     }
 
-    // ---------- 対戦卓画面:カード表記ユーティリティ ----------
+    // ---------- 対戦卓画面:カード表記ユーティリティ(本物のトランプ風レイアウト) ----------
     const SUIT_INFO = {
       s: { symbol: '♠', red: false },
       c: { symbol: '♣', red: false },
@@ -593,21 +669,101 @@
       if (rank === 'T') rank = '10';
       return { rank: rank, suit: suit };
     }
+
+    // 数字カード(2〜10)の中央ピップ配置。x/yは0〜1の割合、flipは下半分で180°回転させる分
+    const PIP_LAYOUTS = {
+      '2': [{ x: 0.5, y: 0.20 }, { x: 0.5, y: 0.80, flip: true }],
+      '3': [{ x: 0.5, y: 0.18 }, { x: 0.5, y: 0.5 }, { x: 0.5, y: 0.82, flip: true }],
+      '4': [{ x: 0.28, y: 0.22 }, { x: 0.72, y: 0.22 }, { x: 0.28, y: 0.78, flip: true }, { x: 0.72, y: 0.78, flip: true }],
+      '5': [{ x: 0.28, y: 0.22 }, { x: 0.72, y: 0.22 }, { x: 0.5, y: 0.5 }, { x: 0.28, y: 0.78, flip: true }, { x: 0.72, y: 0.78, flip: true }],
+      '6': [{ x: 0.28, y: 0.20 }, { x: 0.72, y: 0.20 }, { x: 0.28, y: 0.5 }, { x: 0.72, y: 0.5 }, { x: 0.28, y: 0.80, flip: true }, { x: 0.72, y: 0.80, flip: true }],
+      '7': [{ x: 0.28, y: 0.18 }, { x: 0.72, y: 0.18 }, { x: 0.5, y: 0.32 }, { x: 0.28, y: 0.5 }, { x: 0.72, y: 0.5 }, { x: 0.28, y: 0.82, flip: true }, { x: 0.72, y: 0.82, flip: true }],
+      '8': [{ x: 0.28, y: 0.16 }, { x: 0.72, y: 0.16 }, { x: 0.5, y: 0.30 }, { x: 0.28, y: 0.5 }, { x: 0.72, y: 0.5 }, { x: 0.5, y: 0.70, flip: true }, { x: 0.28, y: 0.84, flip: true }, { x: 0.72, y: 0.84, flip: true }],
+      '9': [{ x: 0.28, y: 0.15 }, { x: 0.72, y: 0.15 }, { x: 0.28, y: 0.37 }, { x: 0.72, y: 0.37 }, { x: 0.5, y: 0.5 },
+            { x: 0.28, y: 0.63, flip: true }, { x: 0.72, y: 0.63, flip: true }, { x: 0.28, y: 0.85, flip: true }, { x: 0.72, y: 0.85, flip: true }],
+      '10': [{ x: 0.28, y: 0.13 }, { x: 0.72, y: 0.13 }, { x: 0.5, y: 0.24 }, { x: 0.28, y: 0.37 }, { x: 0.72, y: 0.37 },
+             { x: 0.28, y: 0.63, flip: true }, { x: 0.72, y: 0.63, flip: true }, { x: 0.5, y: 0.76, flip: true }, { x: 0.28, y: 0.87, flip: true }, { x: 0.72, y: 0.87, flip: true }]
+    };
+
+    let cardSvgIdCounter = 0;
+
+    function isJokerCode(code) {
+      return typeof code === 'string' && code.indexOf('JOKER') === 0;
+    }
+
+    // 絵札(J/Q/K)・ジョーカーは共通デザイン1枚ずつ(スート違いは同じ絵)。
+    // それ以外の数字カード・A は共通の羊皮紙背景を使う
+    const RANK_BG = { J: 'assets/card-jack.jpg', Q: 'assets/card-queen.jpg', K: 'assets/card-king.jpg' };
+    function faceBackgroundFor(code) {
+      if (isJokerCode(code)) return "url('assets/card-joker.jpg')";
+      const c = parseCard(code);
+      if (RANK_BG[c.rank]) return "url('" + RANK_BG[c.rank] + "')";
+      return "url('assets/card-face-bg.jpg')";
+    }
+
+    /** ジョーカー専用の見た目。絵柄自体で判別できるので、隅に小さく「JK」だけ添える(視認性重視で金文字) */
+    function jokerFaceSvg() {
+      const color = '#e8c766';
+      const uid = 'cix' + (cardSvgIdCounter++);
+      return (
+        '<svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">' +
+        '<defs><g id="' + uid + '">' +
+        '<text x="8" y="18" font-size="13" font-weight="bold" fill="' + color + '" stroke="#000" stroke-width="0.6" paint-order="stroke">JOKER</text>' +
+        '</g></defs>' +
+        '<use href="#' + uid + '"/>' +
+        '<use href="#' + uid + '" transform="rotate(180 50 75)"/>' +
+        '</svg>'
+      );
+    }
+
+    function cardFaceSvg(code) {
+      if (isJokerCode(code)) return jokerFaceSvg();
+      const c = parseCard(code);
+      const info = SUIT_INFO[c.suit] || { symbol: '', red: false };
+      const isFaceCard = c.rank === 'J' || c.rank === 'Q' || c.rank === 'K';
+      // 絵札は背景が暗いイラストなので、視認性重視で金色のコーナー表記にする(数字カードは通来通り黒/赤)
+      const color = isFaceCard ? '#e8c766' : (info.red ? '#a01818' : '#161310');
+      const strokeAttr = isFaceCard ? ' stroke="#000" stroke-width="0.6" paint-order="stroke"' : '';
+      const uid = 'cix' + (cardSvgIdCounter++);
+
+      let center = '';
+      if (c.rank === 'A') {
+        center = '<text x="50" y="84" font-size="46" text-anchor="middle" fill="' + color + '">' + info.symbol + '</text>';
+      } else if (!isFaceCard) {
+        const layout = PIP_LAYOUTS[c.rank] || [];
+        center = layout.map(function (p) {
+          const px = p.x * 100, py = p.y * 150;
+          const rot = p.flip ? ' transform="rotate(180 ' + px + ' ' + py + ')"' : '';
+          return '<text x="' + px + '" y="' + (py + 5) + '" font-size="15" text-anchor="middle" fill="' + color + '"' + rot + '>' + info.symbol + '</text>';
+        }).join('');
+      }
+      // J/Q/Kは実際のイラストが中央に表示されるので、中央への文字重ねはコーナー表記のみに留める
+
+      return (
+        '<svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">' +
+        '<defs><g id="' + uid + '">' +
+        '<text x="9" y="20" font-size="15" font-weight="bold" fill="' + color + '"' + strokeAttr + '>' + c.rank + '</text>' +
+        '<text x="9" y="35" font-size="13" fill="' + color + '"' + strokeAttr + '>' + info.symbol + '</text>' +
+        '</g></defs>' +
+        '<use href="#' + uid + '"/>' +
+        '<use href="#' + uid + '" transform="rotate(180 50 75)"/>' +
+        center +
+        '</svg>'
+      );
+    }
+
     function renderCardEl(el, code) {
       if (!el) return;
-      if (!code) { el.innerHTML = ''; el.classList.remove('red'); return; }
-      const c = parseCard(code);
-      const info = SUIT_INFO[c.suit] || { symbol: '', red: false };
-      el.innerHTML = '<div>' + c.rank + '</div><div class="suit">' + info.symbol + '</div>';
-      el.classList.toggle('red', info.red);
+      if (!code) { el.classList.add('face-down'); el.style.backgroundImage = ''; el.innerHTML = ''; return; }
+      el.classList.remove('face-down');
+      el.style.backgroundImage = faceBackgroundFor(code);
+      el.innerHTML = cardFaceSvg(code);
     }
     function miniCardHtml(code) {
-      const c = parseCard(code);
-      const info = SUIT_INFO[c.suit] || { symbol: '', red: false };
-      return '<div style="width:26px;height:38px;background:#fdfdfd;border:1px solid #666;border-radius:3px;' +
-        'display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11px;font-weight:bold;' +
-        (info.red ? 'color:#c92a2a;' : 'color:#1a1a1a;') + '">' + c.rank +
-        '<span style="font-size:12px;line-height:1;">' + info.symbol + '</span></div>';
+      return '<div class="opponent-mini-card" style="background-image:' + faceBackgroundFor(code) + ';">' + cardFaceSvg(code) + '</div>';
+    }
+    function faceDownMiniCardHtml() {
+      return '<div class="opponent-mini-card face-down"></div>';
     }
 
     // ---------- 操作エラーの表示 ----------
@@ -677,6 +833,42 @@
     // ---------- 対戦卓:描画 ----------
     let renderedLogCount = 0;
 
+    let lastActionPlayerId = null;
+    let actionBannerTimer = null;
+
+    /** 自分の番になった瞬間だけ、画面中央に「Action」を1秒間表示する */
+    function checkActionTurnBanner(state) {
+      const isMyTurnNow = state.actionPlayerId === room.sessionId && state.actionPlayerId !== '';
+      const wasMyTurnBefore = lastActionPlayerId === room.sessionId;
+      if (isMyTurnNow && !wasMyTurnBefore) {
+        const banner = document.getElementById('actionTurnBanner');
+        banner.classList.add('show');
+        clearTimeout(actionBannerTimer);
+        actionBannerTimer = setTimeout(function () {
+          banner.classList.remove('show');
+        }, 1000);
+      }
+      lastActionPlayerId = state.actionPlayerId;
+    }
+
+    let lastPhase = null;
+    let phaseBannerTimer = null;
+    const PHASE_LABELS = { preflop: 'プリフロップ', flop: 'フロップ', turn: 'ターン', river: 'リバー' };
+
+    /** プリフロップ/フロップ/ターン/リバーに切り替わった瞬間、画面中央に2秒間表示する */
+    function checkPhaseBanner(state) {
+      if (state.phase !== lastPhase && PHASE_LABELS[state.phase]) {
+        const banner = document.getElementById('phaseBanner');
+        banner.textContent = PHASE_LABELS[state.phase];
+        banner.classList.add('show');
+        clearTimeout(phaseBannerTimer);
+        phaseBannerTimer = setTimeout(function () {
+          banner.classList.remove('show');
+        }, 2000);
+      }
+      lastPhase = state.phase;
+    }
+
     function renderTable() {
       const state = room.state;
       const me = state.players.get(room.sessionId);
@@ -686,6 +878,8 @@
         Math.max(0, state.maxRounds - state.roundNumber + 1);
 
       applyModeVisibility(state);
+      checkPhaseBanner(state);
+      checkActionTurnBanner(state);
       renderOpponents(state);
       renderSelfPanel(state, me);
       renderCommunity(state);
@@ -711,8 +905,9 @@
           p.folded ? '(フォールド)' : p.allIn ? '(オールイン)' : !p.connected ? '(切断中)' : '';
         let cardsHtml = '';
         if (p.revealedHoleCards.length === 2) {
-          cardsHtml = '<div style="display:flex;gap:4px;justify-content:center;">' +
-            miniCardHtml(p.revealedHoleCards[0]) + miniCardHtml(p.revealedHoleCards[1]) + '</div>';
+          cardsHtml = miniCardHtml(p.revealedHoleCards[0]) + miniCardHtml(p.revealedHoleCards[1]);
+        } else if (p.holeCardCount === 2 && !p.folded) {
+          cardsHtml = faceDownMiniCardHtml() + faceDownMiniCardHtml();
         }
         const div = document.createElement('div');
         div.className = 'opponent';
@@ -873,6 +1068,10 @@
         navigatedAway = true;
         room = null;
         tableInitialized = false;
+        chatMessages = [];
+        document.getElementById('lobbyChatMessages').innerHTML = '';
+        document.getElementById('chatFlow').innerHTML = '';
+        document.getElementById('chatHistoryMessages').innerHTML = '';
         showScreen('screen-title');
       } else if (pendingAction === 'leave') {
         leaveRoom();
@@ -1001,6 +1200,96 @@
       room.send('exchangeBodyPart', payload);
     }
     highlightDrawerPart();
+
+    // ---------- チャット(混沌と同じ仕組み:宛先選択で全体/個別、全体は白文字・個別は青文字) ----------
+    let chatMessages = [];
+
+    function formatChatLine(payload) {
+      if (payload.isPrivate) {
+        return '[個別] ' + payload.fromName + '→' + payload.toName + ': ' + payload.text;
+      }
+      return payload.fromName + ': ' + payload.text;
+    }
+
+    function appendChatToFlow(payload) {
+      const flow = document.getElementById('chatFlow');
+      const el = document.createElement('div');
+      el.className = 'chat-line ' + (payload.isPrivate ? 'private' : 'public');
+      el.textContent = formatChatLine(payload);
+      flow.appendChild(el);
+      while (flow.children.length > 6) flow.removeChild(flow.firstChild);
+    }
+
+    function appendChatToHistory(payload) {
+      const box = document.getElementById('chatHistoryMessages');
+      const el = document.createElement('div');
+      el.className = 'chat-line ' + (payload.isPrivate ? 'private' : 'public');
+      el.textContent = formatChatLine(payload);
+      box.appendChild(el);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function renderLobbyChat() {
+      const box = document.getElementById('lobbyChatMessages');
+      box.innerHTML = '';
+      chatMessages.forEach(function (payload) {
+        const el = document.createElement('div');
+        el.style.color = payload.isPrivate ? '#6f9fff' : '#eee';
+        el.style.fontSize = '12px';
+        el.style.marginBottom = '4px';
+        el.textContent = formatChatLine(payload);
+        box.appendChild(el);
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function toggleChatHistory() {
+      const overlay = document.getElementById('chatHistoryOverlay');
+      const btn = document.getElementById('chatToggleBtn');
+      const isOpen = overlay.classList.toggle('open');
+      btn.textContent = isOpen ? '×' : '表示';
+    }
+
+    /** ロビー・対戦卓、両方のチャット宛先セレクトを現在の参加者一覧で更新する */
+    function updateChatTargetOptions() {
+      if (!room) return;
+      const others = [];
+      room.state.players.forEach(function (p, sessionId) {
+        if (sessionId !== room.sessionId) others.push({ id: sessionId, name: p.name });
+      });
+      [document.getElementById('lobbyChatTarget'), document.getElementById('tableChatTarget')].forEach(function (select) {
+        if (!select) return;
+        const prevValue = select.value;
+        select.innerHTML = '<option value="all">全体</option>';
+        others.forEach(function (o) {
+          const opt = document.createElement('option');
+          opt.value = o.id;
+          opt.textContent = o.name;
+          select.appendChild(opt);
+        });
+        if (Array.from(select.options).some(function (o) { return o.value === prevValue; })) {
+          select.value = prevValue;
+        }
+      });
+    }
+
+    function sendLobbyChat() {
+      const input = document.getElementById('lobbyChatInput');
+      const text = input.value.trim();
+      if (!text || !room) return;
+      const target = document.getElementById('lobbyChatTarget').value;
+      room.send('chat', { target: target, text: text });
+      input.value = '';
+    }
+
+    function sendTableChat() {
+      const input = document.getElementById('tableChatInput');
+      const text = input.value.trim();
+      if (!text || !room) return;
+      const target = document.getElementById('tableChatTarget').value;
+      room.send('chat', { target: target, text: text });
+      input.value = '';
+    }
 
     // ページ読み込み時、必ずタイトル画面から始める(これが無いとCSSの兼ね合いで
     // 別の画面が意図せず表示されてしまうため)

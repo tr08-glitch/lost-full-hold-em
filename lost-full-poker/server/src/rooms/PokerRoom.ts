@@ -1,7 +1,7 @@
 import { Room, Client, matchMaker } from "colyseus";
 import { RoomState } from "../schema/RoomState";
 import { PlayerState } from "../schema/PlayerState";
-import { Deck } from "../logic/deck";
+import { Deck, isJokerCode } from "../logic/deck";
 import { determineWinners, evaluateHand } from "../logic/handEvaluator";
 import { calculatePots, splitPot, PotContribution } from "../logic/potManager";
 
@@ -10,6 +10,8 @@ interface RoomOptions {
   bigBlind?: number;
   startingChips?: number;
   mode?: "normal" | "lostfull";
+  jokerEnabled?: boolean;
+  jokerCount?: number;
 }
 
 type ActionMessage =
@@ -57,6 +59,8 @@ export class PokerRoom extends Room<RoomState> {
     this.state.minRaiseUnit = this.state.smallBlind;
     this.state.startingChips = options.startingChips ?? 1000;
     this.state.mode = options.mode ?? "normal";
+    this.state.jokerEnabled = options.jokerEnabled ?? false;
+    this.state.jokerCount = options.jokerCount ?? 2;
 
     // 参加者が入力する4桁のルームコードを発行(Colyseus内部のroomIdとは別物、現在有効な他の
     // 「poker」ルームと重複しないことを確認してから採番する)
@@ -75,6 +79,7 @@ export class PokerRoom extends Room<RoomState> {
       console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] leaveIntentional received sessionId=${client.sessionId}`);
       this.intentionalLeaves.add(client.sessionId);
     });
+    this.onMessage("chat", (client, message: { target?: string; text?: string }) => this.handleChat(client, message));
     console.log(`[LFH] onCreate roomId=${this.roomId}`);
   }
 
@@ -269,6 +274,8 @@ export class PokerRoom extends Room<RoomState> {
       startingChips: number;
       maxRounds: number;
       bigBlind: number;
+      jokerEnabled: boolean;
+      jokerCount: number;
     }>
   ) {
     const player = this.state.players.get(client.sessionId);
@@ -292,6 +299,12 @@ export class PokerRoom extends Room<RoomState> {
       for (const p of this.state.players.values()) {
         p.chips = this.state.startingChips;
       }
+    }
+    if (typeof message.jokerEnabled === "boolean") {
+      this.state.jokerEnabled = message.jokerEnabled;
+    }
+    if (typeof message.jokerCount === "number" && message.jokerCount > 0) {
+      this.state.jokerCount = Math.floor(message.jokerCount);
     }
 
     this.pushLog("ゲーム設定が更新されました");
@@ -329,7 +342,7 @@ export class PokerRoom extends Room<RoomState> {
       return;
     }
 
-    this.deck.reset();
+    this.deck.reset(this.state.jokerEnabled ? this.state.jokerCount : 0);
     this.syncDeckCounts();
     this.holeCards.clear();
     this.state.communityCards.clear();
@@ -381,6 +394,20 @@ export class PokerRoom extends Room<RoomState> {
       // 指が4〜5本無い側は、配札直後から常時カードが公開された状態になる
       if (p.fingersLostLeft >= 4) p.publicCardLeft = cards[0];
       if (p.fingersLostRight >= 4) p.publicCardRight = cards[1];
+
+      // ロストフルモード限定:ジョーカーを配られると1枚につきストレス値+5
+      if (this.state.mode === "lostfull") {
+        const jokerCount = cards.filter((c) => isJokerCode(c)).length;
+        if (jokerCount > 0) {
+          p.stress += jokerCount * 5;
+          this.pushLog(`${p.name}にジョーカーが配られた(ストレス+${jokerCount * 5})`);
+          if (!p.isVegetative && p.stress >= 100) {
+            p.isVegetative = true;
+            p.folded = true; // まだアクション開始前なのでフォールド状態にしておくだけでよい
+            this.pushLog(`${p.name}は廃人となった`);
+          }
+        }
+      }
     }
 
     // ブラインド決定
@@ -788,6 +815,48 @@ export class PokerRoom extends Room<RoomState> {
       return;
     }
     this.autoRunToShowdown();
+  }
+
+  /**
+   * チャット送信。target未指定(または"all")なら全体チャット(broadcast)、
+   * 特定のsessionIdを指定すると個別チャット(送信者と受信者本人にしか届かない)。
+   * 混沌の「宛先選択(全体/個別)」「全体は白文字・個別は青文字」の仕組みに合わせている。
+   */
+  private handleChat(client: Client, message: { target?: string; text?: string }) {
+    const player = this.state.players.get(client.sessionId);
+    if (!player) return;
+
+    const text = (message.text || "").slice(0, 200).trim();
+    if (!text) return;
+
+    const target = message.target || "all";
+
+    if (target === "all") {
+      this.broadcast("chat", {
+        fromId: client.sessionId,
+        fromName: player.name,
+        text,
+        isPrivate: false,
+      });
+      return;
+    }
+
+    const toPlayer = this.state.players.get(target);
+    if (!toPlayer) return; // 存在しない宛先は無視
+
+    const payload = {
+      fromId: client.sessionId,
+      fromName: player.name,
+      text,
+      isPrivate: true,
+      toId: target,
+      toName: toPlayer.name,
+    };
+    // 個別チャットは送信者と受信者のみに届ける
+    this.sendToPlayer(client.sessionId, "chat", payload);
+    if (target !== client.sessionId) {
+      this.sendToPlayer(target, "chat", payload);
+    }
   }
 
   private postBlind(playerId: string, amount: number) {

@@ -41,6 +41,10 @@ export class RoomState extends Schema {
 
   @type("string") mode: "normal" | "lostfull" = "normal";
 
+  // ジョーカー設定(GMがゲーム設定モーダルで変更可能)
+  @type("boolean") jokerEnabled: boolean = false;
+  @type("number") jokerCount: number = 2;
+
   @type("string") lastAggressorId: string = ""; // ショーダウン公開順の基準
 
   @type(["string"]) log = new ArraySchema<string>(); // 直近の進行ログ(UI表示用)
