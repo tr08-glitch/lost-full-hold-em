@@ -17,6 +17,7 @@ export class PlayerState extends Schema {
   @type("boolean") folded: boolean = false;
   @type("boolean") allIn: boolean = false;
   @type("boolean") connected: boolean = true;
+  @type("number") disconnectLeft: number = 0; // 切断中の復帰猶予の残り秒数(0=接続中)
   @type("boolean") isGM: boolean = false;
 
   @type("boolean") isBTN: boolean = false;

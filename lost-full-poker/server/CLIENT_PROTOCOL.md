@@ -283,3 +283,7 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 - server→client(全員にbroadcast): `cardDrop { playerId, side:"left"|"right", card, ms }`(ms=見えている時間。3500)
 - 落下中は`players[id].publicCardLeft/Right`にカードが入り、`ms`後に空に戻る。指4〜5本欠損の側は空に戻らず常時公開。
 - 確率: 1本5% / 2本15% / 3本30%(4本以上は常時公開。行動のたびに判定。落下中は再判定しない)。
+
+## 切断・復帰
+- `PlayerState.connected=false` の間、`disconnectLeft` に復帰猶予の残り秒数(初期30)が毎秒更新される。
+- 猶予切れでゲーム中なら `isSurrendered=true`(強制敗北)。環境変数 `DC_GRACE` で猶予秒数を変更可(テスト用)。

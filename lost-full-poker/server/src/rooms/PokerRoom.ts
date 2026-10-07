@@ -46,7 +46,7 @@ export class PokerRoom extends Room<RoomState> {
   private lostInCallers = new Set<string>(); // ロストイン宣言にコールで応じた人(実行後も勝負に残る)
   private actionDeadline = 0; // 手番の締切(epoch ms)
   // 切断から強制退室までの猶予(秒)
-  private static readonly DISCONNECT_GRACE_SEC = 20;
+  private static readonly DISCONNECT_GRACE_SEC = Number(process.env.DC_GRACE || 30);
   // このハンドの開始時点で配札されたプレイヤーのidスナップショット(座席順)。
   // ハンド途中で降参・死亡(isSurrendered/isDead/isVegetative)になっても、
   // そのハンドのポット計算・進行では引き続きこのリストを使う(activeSeatOrderは
@@ -193,16 +193,26 @@ export class PokerRoom extends Room<RoomState> {
     // ページ遷移(title→room-create→table など)や瞬断はここに入る。
     // 20秒間は同じセッションでの再接続(client.reconnect)を受け付け、
     // 別プレイヤー扱いにならないようにする。
-    console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: arming allowReconnection(20s) sessionId=${client.sessionId} reconnectionToken=${(client as any)._reconnectionToken}`);
+    console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: arming allowReconnection(${PokerRoom.DISCONNECT_GRACE_SEC}s) sessionId=${client.sessionId} reconnectionToken=${(client as any)._reconnectionToken}`);
+    // 残り猶予秒数を毎秒更新(クライアントがステータス欄に赤字で表示する)
+    player.disconnectLeft = PokerRoom.DISCONNECT_GRACE_SEC;
+    const dcDeadline = Date.now() + PokerRoom.DISCONNECT_GRACE_SEC * 1000;
+    const dcTick = this.clock.setInterval(() => {
+      player.disconnectLeft = Math.max(0, Math.ceil((dcDeadline - Date.now()) / 1000));
+    }, 1000);
     try {
       await this.allowReconnection(client, PokerRoom.DISCONNECT_GRACE_SEC);
+      dcTick.clear();
+      player.disconnectLeft = 0;
       player.connected = true; // 再接続成功
       console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: RECONNECTED successfully sessionId=${client.sessionId}`);
       this.pushLog(`${player.name}が再接続しました`);
     } catch (e) {
-      // 20秒以内に再接続されなかった → 本当に退室したとみなす
+      // 猶予時間内に再接続されなかった → 強制敗北(ゲーム中)として退室扱い
+      dcTick.clear();
+      player.disconnectLeft = 0;
       console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: allowReconnection FAILED/EXPIRED sessionId=${client.sessionId} error=${e}`);
-      this.handlePlayerGoneForGood(client.sessionId);
+      this.handlePlayerGoneForGood(client.sessionId, true);
     }
   }
 
@@ -229,7 +239,7 @@ export class PokerRoom extends Room<RoomState> {
   }
 
   /** 再接続の見込みがなくなった(退室 or タイムアウト)プレイヤーの後処理 */
-  private handlePlayerGoneForGood(sessionId: string) {
+  private handlePlayerGoneForGood(sessionId: string, timedOut = false) {
     const player = this.state.players.get(sessionId);
     if (!player) return;
 
@@ -253,6 +263,25 @@ export class PokerRoom extends Room<RoomState> {
     }
 
     if (this.state.phase === "gameEnd") return;
+    if (timedOut && !player.isDead && !player.isVegetative && !player.isBusted && !player.isSurrendered) {
+      // 切断タイムアウト:強制敗北(降参と同じ扱いで最下位グループ)
+      player.isSurrendered = true;
+      this.surrenderCounter++;
+      player.surrenderOrder = this.surrenderCounter;
+      this.pushLog(`${player.name}が切断から復帰しなかったため敗北しました`);
+      if (this.state.phase === "needExchange") {
+        player.folded = true;
+        this.checkNeedExchangeDone();
+        return;
+      }
+      if (!player.folded) {
+        player.folded = true;
+        player.hasActed = true;
+        player.lastAction = "fold";
+        this.progressGame();
+      }
+      return;
+    }
     if (this.state.phase === "needExchange") {
       // 換金待ちの間の離脱:換金待ち中の本人はそのまま脱落、それ以外は通常通り(次ラウンドで除外される)
       if (player.chips <= 0) player.isBusted = true;

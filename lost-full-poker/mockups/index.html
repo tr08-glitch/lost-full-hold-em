@@ -82,10 +82,22 @@
   .turn-timer.warn .tt-sec { color:#ff5a5a; animation:ttblink 1s infinite; }
   @keyframes ttblink { 50% { opacity:.45; } }
   .round-box .val { color:#b91c1c; font-size:18px; font-weight:bold; }
-  .opponents { position:absolute; top:16px; left:160px; right:16px; display:flex; gap:16px; }
-  .opponent { flex:1; max-width:180px; background:#141414; border:1px solid #333; border-radius:6px; padding:10px; text-align:center; position:relative; }
+  .opponents { position:absolute; inset:0; pointer-events:none; z-index:2; }
+  /* 席は6マス: 上2(TL,TR) / 下2(BL,自分側) / 左1(L) / 右1(R)。1人時のみ上中央(T)を使う */
+  .opponent.seat-T  { left:50%; top:16px; }
+  .opponent.seat-TL { left:36%; top:16px; }
+  .opponent.seat-TR { left:64%; top:16px; }
+  .opponent.seat-L  { left:22%; top:calc(50% - 130px); }
+  .opponent.seat-R  { left:78%; top:calc(50% - 130px); }
+  .opponent.seat-BL { left:29%; top:calc(100% - 300px); }
+  .opponent.seat-TL, .opponent.seat-TR, .opponent.seat-T, .opponent.seat-L, .opponent.seat-R, .opponent.seat-BL { transform:translateX(-50%); }
+  .opponent.seat-T .table-cards { left:calc(100% + 8px); top:6px; transform:none; }
+  .opponent.seat-BL .table-cards { left:auto; right:calc(100% + 6px); top:6px; transform:none; }
+  .opponent { pointer-events:auto; position:absolute; width:168px; background:#141414; border:1px solid #333; border-radius:6px; padding:8px 10px; text-align:center; }
   .opponent .name { font-size:12px; color:#999; margin-bottom:6px; }
   .opponent .cards { height:44px; display:flex; align-items:center; justify-content:center; gap:4px; margin-bottom:8px; }
+  .dc-warn { color:#ff3b3b; font-weight:bold; font-size:12px; margin:-2px 0 4px; animation:dcblink 1s steps(2) infinite; }
+  @keyframes dcblink { 50% { opacity:.55; } }
   .opponent .stat-line { font-size:11px; background:#1a1a1a; border:1px solid #333; border-radius:4px; padding:3px 6px; margin-top:4px; }
   .opponent .stat-line.red { color:#e05252; }
   .opponent .name { font-size:14px; color:#ddd; font-weight:bold; }
@@ -103,7 +115,7 @@
   .bet-sub { font-size:10px; color:#888; margin-top:2px; }
   .bet-chip.allin { background:#3a0d0d; border-color:#ff4d4d; color:#ff8080; }
   .position-badge { position:absolute; top:-10px; right:-10px; min-width:26px; height:20px; padding:0 6px; border-radius:10px; background:#f0d060; color:#1a1a00; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 0 6px #000000aa; z-index:2; white-space:nowrap; }
-  .game-log { position:absolute; bottom:212px; left:16px; width:220px; max-height:110px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 10px; font-size:11px; color:#aaa; overflow-y:auto; z-index:3; }
+  .game-log { position:absolute; bottom:212px; left:16px; width:180px; max-height:110px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 10px; font-size:11px; color:#aaa; overflow-y:auto; z-index:3; }
   .game-log .log-title { color:#777; font-size:10px; margin-bottom:4px; }
   .game-log .log-line { margin-bottom:3px; line-height:1.4; }
   #rulesBody h4 { margin:14px 0 4px; color:#e0b040; font-size:13px; }
@@ -115,19 +127,28 @@
   body.lung-one #screen-table::after { content:''; position:absolute; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at 50% 50%, transparent 40%, #8b000055 100%); animation:lungPulse 3.2s ease-in-out infinite; }
   @keyframes lungPulse { 0%,100% { opacity:.55; } 50% { opacity:1; } }
   /* ---- 手(カードを持つ手/落としたカードを拾う手) ---- */
-  .hand-card { position:relative; }
-  .hand-card::after { content:''; position:absolute; width:130px; height:130px; left:calc(50% - 80px); top:calc(100% - 20px); background:url('assets/hand/sheet.webp') 100% 100% / 400% 200% no-repeat; pointer-events:none; z-index:2; animation:handSway 3.4s ease-in-out infinite; filter:drop-shadow(0 3px 4px #000); }
-  #myCard2::after { transform:scaleX(-1); left:calc(50% - 50px); animation-name:handSwayR; }
+  .hand-card { position:relative; animation:cardSway 3.4s ease-in-out infinite; }
+  .hand-card::after { content:''; position:absolute; width:150px; height:150px; left:calc(50% - 92px); top:calc(100% - 42px); background:url('assets/hand/sheet.webp') 100% 100% / 400% 200% no-repeat; pointer-events:none; z-index:2; filter:drop-shadow(0 -2px 3px #000000aa); }
+  #myCard2::after { transform:scaleX(-1); left:calc(50% - 58px); }
+  @keyframes cardSway { 0%,100% { transform:translateY(0) rotate(0deg); } 50% { transform:translateY(2px) rotate(.6deg); } }
   .hand-card.dropped { opacity:.22; transition:opacity .2s; }
   .hand-card.dropped::after { opacity:0; }
-  @keyframes handSway { 0%,100% { transform:translateY(0) rotate(0deg); } 50% { transform:translateY(3px) rotate(1.2deg); } }
-  @keyframes handSwayR { 0%,100% { transform:scaleX(-1) translateY(0) rotate(0deg); } 50% { transform:scaleX(-1) translateY(3px) rotate(1.2deg); } }
   .hand-sprite { position:fixed; z-index:31; pointer-events:none; background:url('assets/hand/sheet.webp') 0 0 / 400% 200% no-repeat; filter:drop-shadow(0 4px 6px #000); }
   .drop-card { position:fixed; z-index:30; pointer-events:none; transition:transform .45s cubic-bezier(.3,1.5,.5,1), opacity .4s; filter:drop-shadow(0 0 10px #ff2a2a) drop-shadow(0 4px 6px #000); }
   .drop-card .card-img { width:100%; height:100%; }
   .drop-label { position:fixed; z-index:32; pointer-events:none; color:#ff7a7a; font-size:12px; letter-spacing:1px; text-shadow:0 0 6px #000, 0 0 10px #a00; white-space:nowrap; transform:translate(-50%, -100%); }
   .opponent-mini-card.slot-hidden { visibility:hidden; }
-  .status-panel { position:absolute; top:58px; right:16px; z-index:5; width:216px; background:#0d0a0aee; border:1px solid #5a2a2a; border-radius:8px; padding:8px 10px; font-size:11px; color:#ccc; line-height:1.5; }
+  /* 指を4本以上失った人は、手札を持てないので、そのカードを卓の上に置いてプレイする */
+  .opponent .table-cards { position:absolute; left:50%; top:calc(100% + 6px); transform:translateX(-50%); display:flex; gap:10px; z-index:3; pointer-events:none; }
+  .opponent .table-cards .tc { width:40px; height:82px; filter:drop-shadow(0 3px 5px #000) drop-shadow(0 0 6px #ff2a2a66); }
+  .opponent .table-cards .tc:nth-child(1) { transform:rotate(-7deg); }
+  .opponent .table-cards .tc:nth-child(2) { transform:rotate(6deg) translateY(3px); }
+  .opponent .table-cards .tc .card-img { width:100%; height:100%; }
+  .hand-card.on-table { animation:none; z-index:1; filter:drop-shadow(0 4px 6px #000) drop-shadow(0 0 8px #ff2a2a88); }
+  #myCard1.on-table { transform:translate(-78px,-14px) rotate(-8deg); }
+  #myCard2.on-table { transform:translate(78px,-14px) rotate(8deg); }
+  .hand-card.on-table::after { display:none; }
+  .status-panel { position:absolute; top:58px; right:16px; z-index:5; width:216px; max-height:22vh; overflow-y:auto; background:#0d0a0aee; border:1px solid #5a2a2a; border-radius:8px; padding:8px 10px; font-size:11px; color:#ccc; line-height:1.5; }
   .status-panel .sp-head { display:flex; justify-content:space-between; align-items:center; cursor:pointer; color:#e05252; letter-spacing:1px; font-size:11px; }
   .status-panel .sp-state { font-weight:bold; font-size:12px; }
   .status-panel .sp-bar { height:7px; background:#222; border-radius:4px; overflow:hidden; margin:3px 0 6px; }
@@ -215,6 +236,12 @@
   .xray-bone { fill:none; stroke:#bfe3f8; opacity:.8; }
   .drawer-select-row { display:flex; gap:8px; align-items:center; }
   .drawer-select-row select { flex:1; background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px; border-radius:4px; }
+  .drawer-info { margin-top:10px; padding:8px 10px; background:#0d0a0a; border:1px solid #5a2a2a; border-radius:6px; font-size:12px; color:#ccc; line-height:1.6; }
+  .drawer-info .di-name { font-size:14px; font-weight:bold; color:#eee; }
+  .drawer-info .di-price { display:flex; gap:14px; margin:2px 0 4px; }
+  .drawer-info .di-price b { color:#e6c700; } .drawer-info .di-price .st b { color:#ff8a8a; }
+  .drawer-info .di-eff { margin:3px 0; padding:3px 6px; border-left:3px solid #b91c1c; background:#1a0c0c; border-radius:3px; }
+  .drawer-info .di-warn { margin-top:4px; color:#ff5a5a; font-weight:bold; }
   .drawer-legend { font-size:10px; color:#777; margin-top:10px; text-align:center; }
   .drawer-exchange-btn { background:#b91c1c33; border:1px solid #b91c1c; color:#eee; padding:8px 16px; border-radius:4px; cursor:pointer; }
   .action-bar { position:absolute; bottom:16px; right:16px; display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; z-index:5; }
@@ -552,20 +579,21 @@
       </div>
       <div class="drawer-select-row">
         <select id="drawerPartSelect" onchange="highlightDrawerPart()">
-          <option value="指(左)">指(左)</option>
-          <option value="指(右)">指(右)</option>
-          <option value="歯">歯</option>
-          <option value="耳(両耳)">耳(両耳)</option>
-          <option value="肺(左)">肺(左)</option>
-          <option value="肺(右)">肺(右)</option>
-          <option value="目(左)">目(左)</option>
-          <option value="目(右)">目(右)</option>
-          <option value="腕(左)">腕(左)</option>
-          <option value="腕(右)">腕(右)</option>
-          <option value="心臓">心臓</option>
+          <option value="指(左)">指(左) +20 / ストレス3</option>
+          <option value="指(右)">指(右) +20 / ストレス3</option>
+          <option value="歯">歯 +200 / ストレス10</option>
+          <option value="耳(両耳)">耳(両耳) +140 / ストレス20</option>
+          <option value="肺(左)">肺(左) +150 / ストレス25</option>
+          <option value="肺(右)">肺(右) +150 / ストレス25</option>
+          <option value="目(左)">目(左) +250 / ストレス15</option>
+          <option value="目(右)">目(右) +250 / ストレス15</option>
+          <option value="腕(左)">腕(左) +150 / ストレス20</option>
+          <option value="腕(右)">腕(右) +150 / ストレス20</option>
+          <option value="心臓">心臓 +400 / 即死</option>
         </select>
         <button class="drawer-exchange-btn" id="drawerExchangeBtn" onclick="doDrawerExchange()">換金</button>
       </div>
+      <div class="drawer-info" id="drawerInfo"></div>
       <div class="drawer-legend">白=未換金 / 赤=換金済み(不可逆)(黄の縁=選択中)</div>
     </div>
   </div>
@@ -722,7 +750,8 @@
       if (reconnecting) return;
       reconnecting = true;
       notify('接続が切れました。再接続中…');
-      for (let i = 0; i < 20 && !navigatedAway; i++) {
+      const dcStart = Date.now();
+      for (let i = 0; Date.now() - dcStart < 32000 && !navigatedAway; i++) {
         try {
           room = await getClient().reconnect(reconnectToken);
           reconnecting = false;
@@ -732,13 +761,13 @@
           return;
         } catch (e) {
           console.warn('reconnect failed', i, e);
-          await new Promise(function (r) { setTimeout(r, 3000); });
+          await new Promise(function (r) { setTimeout(r, 2000); });
         }
       }
       reconnecting = false;
       clearSession();
-      notify('サーバーとの接続が切れました。タイトルに戻ります。', 4000);
-      setTimeout(function () { location.reload(); }, 1500);
+      notify('30秒以内に復帰できなかったため、強制敗北としてルームから退出しました。タイトルに戻ります。', 5000);
+      setTimeout(function () { location.reload(); }, 2500);
     }
 
     // ページ読み込み直後、前回のセッションが残っていれば自動で復帰を試みる
@@ -879,7 +908,7 @@
       const canKick = !!(meForKick && meForKick.isGM);
       players.forEach(function (p) {
         const li = document.createElement('li');
-        li.textContent = p.name + (p.isGM ? '(GM)' : '') + (p.connected ? '' : '(切断中)') +
+        li.textContent = p.name + (p.isGM ? '(GM)' : '') + (p.connected ? '' : '(切断中 残り' + (p.disconnectLeft || 0) + '秒)') +
           (p.chipDelta ? '  次回初期チップ ' + (p.chipDelta > 0 ? '+' : '') + p.chipDelta : '');
         if (canKick && p.id !== room.sessionId) {
           const kb = document.createElement('button');
@@ -1123,7 +1152,7 @@
         '<h4>ジョーカー</h4><p>設定でONにすると山札に追加。<b>どんなカードにもなるワイルド</b>。</p>' +
         '<h4>結果発表</h4><p>終了時にチップの多い順(ロストフルでは死亡・廃人の扱いが変わります)で順位表示。GMは「ニューゲーム」「ルームへ戻る」を選べます。</p>',
       lost: '<h4>ロストフルモードとは</h4><p>身体の一部を<b>いつでも</b>チップに換金できる(元に戻せない)モード。換金するたびに<b>ストレス</b>が溜まります。</p>' +
-        '<h4>換金できる部位</h4><table style="border-collapse:collapse;font-size:12px;width:100%;"><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>部位</b></td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>チップ</b></td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>ストレス</b></td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>効果・備考</b></td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">指</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">20</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">3</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">左右5本ずつ、1本ごとに換金。失うほどカードを落としやすい:行動のたびに確率判定(1本:5% / 2本:15% / 3本:30%)で当たると<b>手を滑らせてカードを落とし、約3.5秒だけ全員に見える</b>(その後、拾い直して非公開に戻る)。<b>4本以上失う</b>(指が2本以下ではカードを持てない)と、その側の手札は<b>常に公開</b>。左手=左の手札、右手=右の手札</td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">歯</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">200</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">10</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">全歯で1回のみ。以後のストレス上昇が<b>2倍</b></td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">耳</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">140</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">20</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>左右同時に1回</b>で換金。音が聞こえなくなる(音声は未実装)</td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">肺(左右)</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">150</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">25</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">片肺:視界に赤いもやがかかる。<b>両肺を失うと死亡</b></td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">目(左右)</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">250</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">15</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">片目:カードの数字が見えない(マークだけ見える)。両目:数字もマークも見えない。自分の画面だけの効果</td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">腕(左右)</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">150</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">20</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>チェック/コールしかできなくなる</b>(コール扱いのオールインは可。レイズ・フォールドは不可)。同じ側の指5本も同時に失う(その分のチップ・ストレスはなし)。ロストインの宣言・対抗は可</td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">心臓</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">400</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">―</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>即死</b>(ストレスは増えない)</td></tr></table>' +
+        '<h4>換金できる部位</h4><table style="border-collapse:collapse;font-size:12px;width:100%;"><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>部位</b></td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>チップ</b></td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>ストレス</b></td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>効果・備考</b></td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">指</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">20</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">3</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">左右5本ずつ、1本ごとに換金。失うほどカードを落としやすい:行動のたびに確率判定(1本:5% / 2本:15% / 3本:30%)で当たると<b>手を滑らせてカードを落とし、約3.5秒だけ全員に見える</b>(その後、拾い直して非公開に戻る)。<b>4本以上失う</b>(指が2本以下ではカードを持てない)と、その側のカードは持てないので<b>卓の上に表向きに置いて</b>プレイする(常に公開)。左手=左の手札、右手=右の手札</td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">歯</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">200</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">10</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">全歯で1回のみ。以後のストレス上昇が<b>2倍</b></td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">耳</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">140</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">20</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>左右同時に1回</b>で換金。音が聞こえなくなる(音声は未実装)</td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">肺(左右)</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">150</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">25</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">片肺:視界に赤いもやがかかる。<b>両肺を失うと死亡</b></td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">目(左右)</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">250</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">15</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">片目:カードの数字が見えない(マークだけ見える)。両目:数字もマークも見えない。自分の画面だけの効果</td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">腕(左右)</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">150</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">20</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>チェック/コールしかできなくなる</b>(コール扱いのオールインは可。レイズ・フォールドは不可)。同じ側の指5本も同時に失う(その分のチップ・ストレスはなし)。ロストインの宣言・対抗は可</td></tr><tr><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">心臓</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">400</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;">―</td><td style="padding:4px 6px;border:1px solid #444;vertical-align:top;"><b>即死</b>(ストレスは増えない)</td></tr></table>' +
         '<h4>ストレスと廃人</h4><p>ストレスが<b>100</b>に達すると<b>廃人</b>になり、ゲームに参加できなくなります。ジョーカーが手札に配られるたびにストレス+5。死亡・廃人になる換金は、実行前に確認が出ます。右上の「ステータス」でいまの状態・ストレス・デバフを確認できます。</p>' +
         '<h4>ロストイン</h4><p>残った部位を<b>すべて(心臓も含む)</b>換金してオールインする捨て身の技。宣言すると合計額が<b>赤札</b>として提示され、他の人は順番に「コール(赤札と同額を支払う)」「オールイン(手持ちを全て賭ける)」「対抗ロストイン」「フォールド」から選びます。全員がフォールドなら不発。コール/オールイン/対抗が出た時点で実行が確定し、まだ応答していない人は自動でフォールド、そのまま場が全部開いてジャッジへ。実行した人は<b>勝っても負けても死亡</b>。腕を失っていても宣言でき、手持ちが赤札以下ならコール扱いのオールインで応じられます。</p>' +
         '<h4>チップが0になったら</h4><p>ロストフルモードでは、チップが0になっても脱落しません。<b>換金画面が自動で開く</b>ので、部位を換金してチップを作ればゲームを続けられます。<b>他のプレイヤーは、その人の換金が終わるまで次のラウンドを待ちます。</b>制限時間内に換金しないと脱落。換金できる部位が残っていない場合も脱落です。</p>' +
@@ -1524,12 +1553,18 @@
       const meSp = state.players.get(room.sessionId);
       const iAmSpectator = !!(meSp && meSp.isSpectator);
       // 観戦者は自分の席がないので、全プレイヤーを相手枠として並べる(手札公開設定がオンなら手札も見える)
-      others.sort(function (a, b) { return a.seatIndex - b.seatIndex; });
+      // 自分から時計回りに並べ、卓の形の席(下→左→上→右)へ割り当てる
+      const mySeat = meSp && !meSp.isSpectator ? meSp.seatIndex : 0;
+      const nSeats = Math.max(6, others.length + 1);
+      others.sort(function (a, b) { return ((a.seatIndex - mySeat + nSeats) % nSeats) - ((b.seatIndex - mySeat + nSeats) % nSeats); });
+      const SEAT_SETS = { 1: ['T'], 2: ['TL', 'TR'], 3: ['L', 'T', 'R'], 4: ['L', 'TL', 'TR', 'R'], 5: ['BL', 'L', 'TL', 'TR', 'R'], 6: ['BL', 'L', 'TL', 'TR', 'R', 'T'] };
+      const seatList = SEAT_SETS[Math.min(others.length, 6)] || [];
 
-      others.forEach(function (p) {
+      others.forEach(function (p, oi) {
         const statusNote = p.isDead ? '(死亡)' : p.isVegetative ? '(廃人)' :
-          p.folded ? '(フォールド)' : p.allIn ? '(オールイン)' : !p.connected ? '(切断中)' : '';
+          p.folded ? '(フォールド)' : p.allIn ? '(オールイン)' : '';
         let cardsHtml = '';
+        let tableCardsHtml = '';
         if (p.revealedHoleCards.length === 2) {
           cardsHtml = miniCardHtml(p.revealedHoleCards[0]) + miniCardHtml(p.revealedHoleCards[1]);
         } else if (iAmSpectator && state.spectatorSeeHands && spectatorHands[p.id] && p.holeCardCount === 2) {
@@ -1539,17 +1574,24 @@
           const slotHtml = function (idx) {
             const pub = idx === 0 ? p.publicCardLeft : p.publicCardRight;
             const lost = idx === 0 ? p.fingersLostLeft : p.fingersLostRight;
-            if (pub && lost >= 4) return miniCardHtml(pub, p.id + ':' + idx);
+            if (pub && lost >= 4) return ''; // 卓の上に置く(下の tableCardsHtml)
             return faceDownMiniCardHtml(p.id + ':' + idx, !!pub);
           };
           cardsHtml = slotHtml(0) + slotHtml(1);
+          [0, 1].forEach(function (idx) {
+            const pub = idx === 0 ? p.publicCardLeft : p.publicCardRight;
+            const lost = idx === 0 ? p.fingersLostLeft : p.fingersLostRight;
+            if (pub && lost >= 4) tableCardsHtml += '<div class="tc">' + cardImgHtml(pub) + '</div>';
+          });
         }
         const div = document.createElement('div');
-        div.className = 'opponent';
+        div.className = 'opponent seat-' + (seatList[oi] || 'T');
         div.innerHTML =
           (p.positionLabel ? '<div class="position-badge">' + p.positionLabel + '</div>' : '') +
           '<div class="name">' + escapeHtml(p.name) + statusNote + '</div>' +
+          (!p.connected ? '<div class="dc-warn">切断中 残り ' + (p.disconnectLeft || 0) + ' 秒</div>' : '') +
           '<div class="cards">' + cardsHtml + '</div>' +
+          (tableCardsHtml ? '<div class="table-cards">' + tableCardsHtml + '</div>' : '') +
           '<div class="stat-line"' + (p.chips < 0 ? ' style="color:#ff5a5a;"' : '') + '>チップ: ' + p.chips + '</div>' +
           '<div class="bet-chip' + (p.totalRoundBet > 0 ? ' active' : '') + (p.allIn ? ' allin' : '') + '"><span class="lbl">' +
             (p.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + p.totalRoundBet + '</span>' + chipStackHtml(p.totalRoundBet, 14) + '</div>' +
@@ -1701,6 +1743,9 @@
     function renderSelfPanel(state, me) {
       document.getElementById('selfName').textContent = me.name + '(自分)' + (me.isSurrendered ? ' 観戦中' : '');
       document.querySelector('.top-right-actions .surrender').style.display = me.isSurrendered ? 'none' : '';
+      // 指を4本以上失った側のカードは、手に持てないので卓の上に置く
+      document.getElementById('myCard1').classList.toggle('on-table', !!(me.publicCardLeft && me.fingersLostLeft >= 4));
+      document.getElementById('myCard2').classList.toggle('on-table', !!(me.publicCardRight && me.fingersLostRight >= 4));
       const badge = document.getElementById('selfPositionBadge');
       if (me.positionLabel) {
         badge.textContent = me.positionLabel;
@@ -2122,7 +2167,69 @@
     function clearDrawerHighlight() {
       bodyHighlight = [];
     }
+    // 選んだ部位の換金額・ストレス・デバフの説明
+    function partEffects(def, me) {
+      const eff = [];
+      const mult = me && me.teethLost ? 2 : 1;
+      switch (def.part) {
+        case 'finger': {
+          const side = def.side === 'left' ? '左' : '右';
+          const now = me ? (def.side === 'left' ? me.fingersLostLeft : me.fingersLostRight) : 0;
+          const next = now + 1;
+          const prob = { 1: '5%', 2: '15%', 3: '30%' };
+          eff.push(next >= 4
+            ? side + '指が' + next + '本欠損になる → <b>' + side + 'の手札が常に公開</b>される(指2本以下ではカードを持てない)'
+            : side + '指が' + next + '本欠損になる → 行動のたびに<b>' + prob[next] + '</b>でカードを落とす(約3.5秒、全員に見える)');
+          eff.push('現在 ' + side + '指 ' + now + '本欠損(残り' + (5 - now) + '本)');
+          break;
+        }
+        case 'tooth': eff.push('<b>以降のストレス上昇が2倍</b>になる(この換金自体は等倍)'); break;
+        case 'ear': eff.push('左右の耳を<b>同時に</b>失う(1回のみ)。音が聞こえなくなる(音声は未実装)'); break;
+        case 'lung': {
+          const other = me ? (def.side === 'left' ? me.lungsLostRight : me.lungsLostLeft) : false;
+          eff.push(other ? '<b>両肺を失い、死亡します</b>' : '片肺になる → 視界に赤いもやがかかる。<b>もう片方を失うと死亡</b>');
+          break;
+        }
+        case 'eye': {
+          const other = me ? (def.side === 'left' ? me.eyesLostRight : me.eyesLostLeft) : false;
+          eff.push(other ? '両目を失う → カードの<b>数字もマークも見えない</b>' : '片目を失う → カードの<b>数字が見えない</b>(マークだけ見える)。もう片方も失うと数字・マークとも見えない');
+          break;
+        }
+        case 'arm': {
+          const side = def.side === 'left' ? '左' : '右';
+          eff.push('<b>チェック/コールしかできなくなる</b>(コール扱いのオールインは可。レイズ・フォールド不可。ロストインの宣言・対抗は可)');
+          eff.push(side + '指5本も同時に失う(その分のチップ・ストレスは入らない) → <b>' + side + 'の手札が常に公開</b>');
+          break;
+        }
+        case 'heart': eff.push('<b>即死</b>(ストレスは増えない)。大きなチップと引き換えに試合から脱落'); break;
+      }
+      return eff;
+    }
+    function renderDrawerInfo() {
+      const box = document.getElementById('drawerInfo');
+      if (!box) return;
+      const key = document.getElementById('drawerPartSelect').value;
+      const def = PART_DEFS[key];
+      const me = room && room.state ? room.state.players.get(room.sessionId) : null;
+      if (!def) { box.innerHTML = ''; return; }
+      const mult = me && me.teethLost ? 2 : 1;
+      const stress = def.stress * mult;
+      const avail = !me || isPartAvailable(key, me);
+      let h = '<div class="di-name">' + key + (avail ? '' : '(換金済み)') + '</div>' +
+        '<div class="di-price"><span>換金額 <b>+' + def.value + '</b></span><span class="st">ストレス <b>' + (def.part === 'heart' ? 'なし' : '+' + stress) + '</b>' + (mult === 2 && def.stress ? '(歯の喪失で2倍)' : '') + '</span></div>';
+      partEffects(def, me).forEach(function (t) { h += '<div class="di-eff">' + t + '</div>'; });
+      if (me && avail) {
+        let warn = '';
+        if (def.part === 'heart') warn = '死亡';
+        else if (def.part === 'lung' && (def.side === 'left' ? me.lungsLostRight : me.lungsLostLeft)) warn = '死亡';
+        else if (me.stress + stress >= 100 && def.stress) warn = '廃人';
+        if (warn) h += '<div class="di-warn">⚠ この換金で' + warn + 'になります</div>';
+        else if (def.stress) h += '<div style="font-size:11px;color:#999;">換金後のストレス: ' + (me.stress + stress) + ' / 100</div>';
+      }
+      box.innerHTML = h;
+    }
     function highlightDrawerPart() {
+      renderDrawerInfo();
       clearDrawerHighlight();
       const key = document.getElementById('drawerPartSelect').value;
       const def = PART_DEFS[key];
