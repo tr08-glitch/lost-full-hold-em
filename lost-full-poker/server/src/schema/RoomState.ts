@@ -35,6 +35,8 @@ export class RoomState extends Schema {
   @type("number") bigBlind: number = 40;
 
   @type("number") roundNumber: number = 0;
+  @type("number") timeLimit: number = 30; // 持ち時間(秒)。時間切れで自動フォールド
+  @type("number") timeLeft: number = 0; // 現在の手番の残り秒数(表示用)
   @type("number") maxRounds: number = 10;
 
   @type("number") startingChips: number = 1000;

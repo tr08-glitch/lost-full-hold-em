@@ -7,6 +7,7 @@ import { calculatePots, splitPot, PotContribution } from "../logic/potManager";
 
 interface RoomOptions {
   maxRounds?: number;
+  timeLimit?: number;
   bigBlind?: number;
   startingChips?: number;
   mode?: "normal" | "lostfull";
@@ -42,7 +43,7 @@ export class PokerRoom extends Room<RoomState> {
 
   // 現在の手番プレイヤーの行動タイムアウト(30秒操作がなければ自動フォールド)
   private actionTimeout: { clear: () => void } | null = null;
-  private static readonly ACTION_TIMEOUT_MS = 30_000;
+  private actionDeadline = 0; // 手番の締切(epoch ms)
   // 切断から強制退室までの猶予(秒)
   private static readonly DISCONNECT_GRACE_SEC = 20;
   // このハンドの開始時点で配札されたプレイヤーのidスナップショット(座席順)。
@@ -53,10 +54,21 @@ export class PokerRoom extends Room<RoomState> {
   private handParticipants: string[] = [];
   private surrenderCounter = 0;
 
+  private static clampTimeLimit(n: number): number {
+    return Math.min(300, Math.max(5, Math.floor(n)));
+  }
+
   async onCreate(options: RoomOptions) {
     this.setState(new RoomState());
 
     this.state.maxRounds = options.maxRounds ?? 10;
+    this.state.timeLimit = PokerRoom.clampTimeLimit(options.timeLimit ?? 30);
+    // 残り秒数を表示用にstateへ反映(0.5秒ごと)
+    this.clock.setInterval(() => {
+      const active = this.state.actionPlayerId !== "" && ["preflop", "flop", "turn", "river"].includes(this.state.phase);
+      const left = active ? Math.max(0, Math.ceil((this.actionDeadline - Date.now()) / 1000)) : 0;
+      if (this.state.timeLeft !== left) this.state.timeLeft = left;
+    }, 500);
     this.state.bigBlind = options.bigBlind ?? 40;
     this.state.smallBlind = Math.floor(this.state.bigBlind / 2);
     this.state.minRaiseUnit = this.state.smallBlind;
@@ -114,7 +126,19 @@ export class PokerRoom extends Room<RoomState> {
 
     const player = new PlayerState();
     player.id = client.sessionId;
-    player.name = (options?.name || "プレイヤー").slice(0, 10);
+    const takenNames = new Set<string>();
+    this.state.players.forEach((p) => takenNames.add(p.name.trim().toLowerCase()));
+    const requested = (options?.name || "").trim().slice(0, 10);
+    let finalName = requested;
+    if (!requested) {
+      // 名前未入力の場合は「プレイヤー1」「プレイヤー2」…と、空いている最小の番号を割り当てる
+      let n = 1;
+      while (takenNames.has(`プレイヤー${n}`.toLowerCase())) n++;
+      finalName = `プレイヤー${n}`;
+    } else if (takenNames.has(requested.toLowerCase())) {
+      throw new Error("duplicate_name");
+    }
+    player.name = finalName;
     player.chips = this.state.startingChips;
     player.seatIndex = this.state.players.size;
     player.isGM = this.state.players.size === 0; // 最初の入室者がGM(部屋作成者)
@@ -225,10 +249,10 @@ export class PokerRoom extends Room<RoomState> {
   private setActionPlayer(playerId: string) {
     this.actionTimeout?.clear();
     this.state.actionPlayerId = playerId;
-    this.actionTimeout = this.clock.setTimeout(
-      () => this.autoFoldOnTimeout(playerId),
-      PokerRoom.ACTION_TIMEOUT_MS
-    );
+    const ms = this.state.timeLimit * 1000;
+    this.actionDeadline = Date.now() + ms;
+    this.state.timeLeft = this.state.timeLimit;
+    this.actionTimeout = this.clock.setTimeout(() => this.autoFoldOnTimeout(playerId), ms);
   }
 
   /** タイムアウト発火時、まだ本当にそのプレイヤーの手番であればフォールドさせる */
@@ -302,6 +326,7 @@ export class PokerRoom extends Room<RoomState> {
       mode: "normal" | "lostfull";
       startingChips: number;
       maxRounds: number;
+      timeLimit: number;
       bigBlind: number;
       jokerEnabled: boolean;
       jokerCount: number;
@@ -316,6 +341,9 @@ export class PokerRoom extends Room<RoomState> {
     }
     if (typeof message.maxRounds === "number" && message.maxRounds > 0) {
       this.state.maxRounds = Math.floor(message.maxRounds);
+    }
+    if (typeof message.timeLimit === "number" && message.timeLimit > 0) {
+      this.state.timeLimit = PokerRoom.clampTimeLimit(message.timeLimit);
     }
     if (typeof message.bigBlind === "number" && message.bigBlind > 0) {
       this.state.bigBlind = Math.floor(message.bigBlind);
@@ -1120,7 +1148,7 @@ export class PokerRoom extends Room<RoomState> {
 
   /**
    * レイズ額(raiseTo=そのプレイヤーの合計BET額として指定)の妥当性検証。
-   * ルール:既にBETが入っている状態へのレイズは「現在のBET額を超える額 〜 現在のBET額の2倍まで」、最小単位はSB刻み。
+   * ルール:レイズに上限は設けない(最小は現在のBET額+SB、最大は自分のチップ残高まで)。
    * 現在のBET額が0(オープニングベット。フロップ以降で発生)の場合は上限を設けない(最小額SBのみ適用、最大は自分のチップ残高まで)。
    * ちょうどオールインになる額は allin アクションを使うこと。
    */
@@ -1135,8 +1163,6 @@ export class PokerRoom extends Room<RoomState> {
         ? this.state.currentBet + this.state.minRaiseUnit
         : this.state.minRaiseUnit;
     if (raiseTo < minRaiseTo) return false;
-
-    if (this.state.currentBet > 0 && raiseTo > this.state.currentBet * 2) return false;
 
     const additional = raiseTo - player.currentBet;
     if (additional >= player.chips) return false; // 超過 or ちょうどオールインは allin アクションで行う

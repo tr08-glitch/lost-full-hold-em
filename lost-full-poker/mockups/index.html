@@ -66,6 +66,12 @@
   /* ---------- 対戦卓画面 ---------- */
   .screen-table { position:relative; width:100%; height:100vh; box-sizing:border-box; overflow:hidden; }
   .round-box { position:absolute; top:16px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:13px; }
+  .turn-timer { position:absolute; top:112px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:12px; color:#bbb; min-width:84px; text-align:center; z-index:4; }
+  .turn-timer .tt-sec { font-size:30px; font-weight:bold; color:#4ade80; line-height:1.1; }
+  .turn-timer.mine { border-color:#e0b040; }
+  .turn-timer.warn { border-color:#ff4d4d; }
+  .turn-timer.warn .tt-sec { color:#ff5a5a; animation:ttblink 1s infinite; }
+  @keyframes ttblink { 50% { opacity:.45; } }
   .round-box .val { color:#b91c1c; font-size:18px; font-weight:bold; }
   .opponents { position:absolute; top:16px; left:160px; right:16px; display:flex; gap:16px; }
   .opponent { flex:1; max-width:180px; background:#141414; border:1px solid #333; border-radius:6px; padding:10px; text-align:center; position:relative; }
@@ -73,6 +79,12 @@
   .opponent .cards { height:44px; display:flex; align-items:center; justify-content:center; gap:4px; margin-bottom:8px; }
   .opponent .stat-line { font-size:11px; background:#1a1a1a; border:1px solid #333; border-radius:4px; padding:3px 6px; margin-top:4px; }
   .opponent .stat-line.red { color:#e05252; }
+  .opponent .name { font-size:14px; color:#ddd; font-weight:bold; }
+  .bet-chip { display:flex; align-items:baseline; justify-content:center; gap:6px; margin-top:6px; padding:5px 8px; border-radius:6px; background:#1a1a1a; border:1px solid #333; color:#666; }
+  .bet-chip .lbl { font-size:11px; letter-spacing:1px; }
+  .bet-chip .amt { font-size:22px; font-weight:bold; }
+  .bet-chip.active { background:#2a2208; border:2px solid #e0b040; color:#ffd24d; box-shadow:0 0 10px #e0b04055; }
+  .bet-chip.allin { background:#3a0d0d; border-color:#ff4d4d; color:#ff8080; }
   .position-badge { position:absolute; top:-10px; right:-10px; min-width:26px; height:20px; padding:0 6px; border-radius:10px; background:#f0d060; color:#1a1a00; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 0 6px #000000aa; z-index:2; white-space:nowrap; }
   .game-log { position:absolute; bottom:212px; left:16px; width:220px; max-height:110px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 10px; font-size:11px; color:#aaa; overflow-y:auto; z-index:3; }
   .game-log .log-title { color:#777; font-size:10px; margin-bottom:4px; }
@@ -189,7 +201,7 @@
     <div class="settings-icon">⚙</div>
     <div class="name-input">
       <label style="font-size:12px;color:#999;">プレイヤー名</label><br>
-      <input type="text" id="playerNameInput" placeholder="プレイヤー1" maxlength="10">
+      <input type="text" id="playerNameInput" placeholder="名前(未入力なら自動)" maxlength="10">
     </div>
     <div class="menu">
       <button onclick="startAsGM(this)">AI戦</button>
@@ -268,11 +280,15 @@
         <input type="number" id="maxRoundsInput" value="10">
       </div>
       <div class="modal-row">
+        <label>持ち時間(秒・5〜300)</label>
+        <input type="number" id="timeLimitInput" value="30" min="5" max="300">
+      </div>
+      <div class="modal-row">
         <label>ビッグブラインドの金額</label>
         <input type="number" id="bbAmount" value="40" oninput="document.getElementById('sbAmount').textContent = Math.floor(this.value / 2)">
         <div style="font-size:11px; color:#777; margin-top:4px;">スモールブラインド: <span id="sbAmount">20</span>(自動で半額)</div>
       </div>
-      <div class="toggle-row"><span>ジョーカーの有無</span><input type="checkbox" id="jokerToggle" onchange="document.getElementById('jokerCount').disabled = !this.checked"></div>
+      <div class="toggle-row"><span>ジョーカーの有無</span><input type="checkbox" id="jokerToggle" autocomplete="off" onchange="document.getElementById('jokerCount').disabled = !this.checked"></div>
       <div class="modal-row">
         <label>ジョーカーの枚数</label>
         <input type="number" id="jokerCount" value="2" min="1" max="4" disabled>
@@ -304,6 +320,7 @@
     <div class="phase-banner" id="phaseBanner"></div>
     <div class="action-turn-banner" id="actionTurnBanner">Action</div>
     <div class="round-box">残りラウンド<br><span class="val">-</span></div>
+    <div class="turn-timer" id="turnTimer" style="display:none;"><div class="tt-name" id="ttName"></div><div class="tt-sec" id="ttSec">0</div><div>持ち時間(秒)</div></div>
     <div class="round-box" id="lostInBanner" style="display:none; top:64px; border-color:#b91c1c; color:#e05252;"></div>
 
     <div class="top-right-actions">
@@ -357,7 +374,7 @@
         <div class="stat" id="selfChip">チップ: 1000</div>
       </div>
       <div class="row">
-        <div class="stat" id="selfBet">BET: 0</div>
+        <div class="bet-chip" id="selfBet"><span class="lbl">BET</span><span class="amt">0</span></div>
       </div>
     </div>
 
@@ -385,11 +402,11 @@
       <div class="raise-modal">
         <h3>レイズ</h3>
         <label>レイズする量</label>
-        <input type="number" id="raiseAmount" value="40" step="10">
+        <input type="number" id="raiseAmount" value="40" step="10" oninput="updateRaiseConfirmLabel()">
         <div class="range-note">最大 <span id="raiseMax">80</span></div>
         <div class="raise-modal-actions">
           <button onclick="closeRaise()">キャンセル</button>
-          <button class="confirm" onclick="confirmRaise()">確定</button>
+          <button class="confirm" id="raiseConfirmBtn" onclick="confirmRaise()">確定</button>
         </div>
       </div>
     </div>
@@ -479,7 +496,7 @@
     // ---------- タイトル画面 ----------
     function readNameInput() {
       const input = document.getElementById('playerNameInput');
-      currentPlayerName = input.value.trim() || input.placeholder;
+      currentPlayerName = input.value.trim(); // 空ならサーバーが「プレイヤーN」を自動採番
     }
 
     async function startAsGM(btn) {
@@ -493,7 +510,7 @@
           startingChips: 1000,
           maxRounds: 10,
           bigBlind: 40,
-          jokerEnabled: document.getElementById('jokerToggle') ? document.getElementById('jokerToggle').checked : false,
+          jokerEnabled: false, // 部屋作成時は常にジョーカーなし(変更は設定画面から)
           jokerCount: document.getElementById('jokerCount') ? Number(document.getElementById('jokerCount').value) : 2,
         });
       } catch (e) {
@@ -544,7 +561,10 @@
         room = await getClient().joinById(match.roomId, { name: currentPlayerName });
       } catch (e) {
         console.error(e);
-        document.getElementById('joinError').textContent = 'ルームが見つからないか、既にゲームが開始されています';
+        document.getElementById('joinError').textContent =
+          (e && String(e.message || e).indexOf('duplicate_name') !== -1)
+            ? '名前が同じ人がいるため、ルームに参加するのに失敗しました'
+            : 'ルームが見つからないか、既にゲームが開始されています';
         btn.disabled = false;
         return;
       }
@@ -673,7 +693,7 @@
     function updateStatusLine() {
       const state = room.state;
       document.getElementById('statusLine').textContent =
-        `モード: ${state.mode === 'lostfull' ? 'ロストフル' : 'ノーマル'} / 初期チップ: ${state.startingChips} / ラウンド数: ${state.maxRounds} / BB: ${state.bigBlind}(SB: ${state.smallBlind})`;
+        `モード: ${state.mode === 'lostfull' ? 'ロストフル' : 'ノーマル'} / 初期チップ: ${state.startingChips} / ラウンド数: ${state.maxRounds} / 持ち時間: ${state.timeLimit}秒 / BB: ${state.bigBlind}(SB: ${state.smallBlind})`;
     }
 
     function renderLobbyPlayers() {
@@ -714,6 +734,7 @@
       document.getElementById('modeSelect').value = state.mode;
       document.getElementById('startingChipsInput').value = state.startingChips;
       document.getElementById('maxRoundsInput').value = state.maxRounds;
+      document.getElementById('timeLimitInput').value = state.timeLimit;
       document.getElementById('bbAmount').value = state.bigBlind;
       document.getElementById('sbAmount').textContent = state.smallBlind;
       document.getElementById('jokerToggle').checked = state.jokerEnabled;
@@ -729,6 +750,7 @@
         mode: document.getElementById('modeSelect').value,
         startingChips: Number(document.getElementById('startingChipsInput').value),
         maxRounds: Number(document.getElementById('maxRoundsInput').value),
+        timeLimit: Number(document.getElementById('timeLimitInput').value),
         bigBlind: Number(document.getElementById('bbAmount').value),
         jokerEnabled: document.getElementById('jokerToggle').checked,
         jokerCount: Number(document.getElementById('jokerCount').value),
@@ -961,6 +983,18 @@
     let actionBannerTimer = null;
 
     /** 自分の番になった瞬間だけ、画面中央に「Action」を1秒間表示する */
+    function renderTurnTimer(state) {
+      const box = document.getElementById('turnTimer');
+      const active = state.actionPlayerId && ['preflop', 'flop', 'turn', 'river'].indexOf(state.phase) !== -1;
+      if (!active) { box.style.display = 'none'; return; }
+      const p = state.players.get(state.actionPlayerId);
+      const mine = state.actionPlayerId === room.sessionId;
+      box.style.display = 'block';
+      box.classList.toggle('mine', mine);
+      box.classList.toggle('warn', state.timeLeft <= 10);
+      document.getElementById('ttName').textContent = mine ? 'あなたの番' : ((p ? p.name : '') + 'の番');
+      document.getElementById('ttSec').textContent = state.timeLeft;
+    }
     function checkActionTurnBanner(state) {
       const isMyTurnNow = state.actionPlayerId === room.sessionId && state.actionPlayerId !== '';
       const wasMyTurnBefore = lastActionPlayerId === room.sessionId;
@@ -1004,6 +1038,7 @@
       applyModeVisibility(state);
       checkPhaseBanner(state);
       checkActionTurnBanner(state);
+      renderTurnTimer(state);
       renderOpponents(state);
       renderSelfPanel(state, me);
       renderCommunity(state);
@@ -1015,6 +1050,9 @@
       }
     }
 
+    function escapeHtml(t) {
+      return String(t).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+    }
     function renderOpponents(state) {
       const area = document.getElementById('opponentsArea');
       area.innerHTML = '';
@@ -1037,10 +1075,11 @@
         div.className = 'opponent';
         div.innerHTML =
           (p.positionLabel ? '<div class="position-badge">' + p.positionLabel + '</div>' : '') +
-          '<div class="name">' + p.name + statusNote + '</div>' +
+          '<div class="name">' + escapeHtml(p.name) + statusNote + '</div>' +
           '<div class="cards">' + cardsHtml + '</div>' +
           '<div class="stat-line">チップ: ' + p.chips + '</div>' +
-          '<div class="stat-line">BET: ' + p.currentBet + '</div>';
+          '<div class="bet-chip' + (p.currentBet > 0 ? ' active' : '') + (p.allIn ? ' allin' : '') + '"><span class="lbl">' +
+            (p.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + p.currentBet + '</span></div>';
         area.appendChild(div);
       });
     }
@@ -1056,7 +1095,9 @@
         badge.style.display = 'none';
       }
       document.getElementById('selfChip').textContent = 'チップ: ' + me.chips;
-      document.getElementById('selfBet').textContent = 'BET: ' + me.currentBet;
+      const sb = document.getElementById('selfBet');
+      sb.className = 'bet-chip' + (me.currentBet > 0 ? ' active' : '') + (me.allIn ? ' allin' : '');
+      sb.innerHTML = '<span class="lbl">' + (me.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + me.currentBet + '</span>';
       if (me.revealedHoleCards.length === 2) {
         renderCardEl(document.getElementById('myCard1'), me.revealedHoleCards[0]);
         renderCardEl(document.getElementById('myCard2'), me.revealedHoleCards[1]);
@@ -1074,6 +1115,15 @@
       document.querySelector('.used-box').innerHTML = '使用済み<br>' + state.discardCount;
     }
 
+    const LOG_ACTION_COLORS = {
+      'チェック': '#4ade80', 'コール': '#5ab4ff', 'レイズ': '#ffd24d',
+      'フォールド': '#a0a0a0', 'オールイン': '#ff8a3d', 'ロストイン': '#ff4d6d'
+    };
+    function colorizeLog(text) {
+      return escapeHtml(text).replace(/ロストイン|オールイン|チェック|コール|レイズ|フォールド/g, function (w) {
+        return '<span style="color:' + LOG_ACTION_COLORS[w] + ';font-weight:bold;">' + w + '</span>';
+      });
+    }
     function renderLog(state) {
       const box = document.getElementById('gameLog');
       const lines = Array.from(state.log);
@@ -1081,7 +1131,7 @@
       for (let i = renderedLogCount; i < lines.length; i++) {
         const el = document.createElement('div');
         el.className = 'log-line';
-        el.textContent = lines[i];
+        el.innerHTML = colorizeLog(lines[i]);
         box.appendChild(el);
       }
       renderedLogCount = lines.length;
@@ -1105,6 +1155,7 @@
         const raisePending = me.currentBet < state.currentBet;
         document.getElementById('btnCheck').disabled = !canAct || raisePending;
         document.getElementById('btnCall').disabled = !canAct || !raisePending;
+        document.getElementById('btnCall').textContent = (raisePending && state.currentBet - me.currentBet >= me.chips) ? 'オールイン' : 'コール';
         document.getElementById('btnRaise').disabled = !canAct || me.chips <= 0 || armRestricted;
         document.getElementById('btnFold').disabled = !canAct || armRestricted;
         document.getElementById('btnLostin').disabled = !canAct;
@@ -1135,8 +1186,9 @@
       const state = room.state;
       const me = state.players.get(room.sessionId);
       const currentBet = state.currentBet;
-      const minRaiseTo = currentBet > 0 ? currentBet + state.minRaiseUnit : state.minRaiseUnit;
-      const maxRaiseTo = currentBet > 0 ? currentBet * 2 : (me.currentBet + me.chips);
+      const allInTo = me.currentBet + me.chips;
+      const maxRaiseTo = allInTo; // レイズ上限なし(手持ちチップまで)
+      const minRaiseTo = Math.min(currentBet > 0 ? currentBet + state.minRaiseUnit : state.minRaiseUnit, maxRaiseTo);
       const input = document.getElementById('raiseAmount');
       input.min = minRaiseTo;
       input.max = maxRaiseTo;
@@ -1144,13 +1196,23 @@
       input.value = Math.min(Math.max(minRaiseTo, currentBet + state.minRaiseUnit), maxRaiseTo);
       document.getElementById('raiseMax').textContent = maxRaiseTo;
       document.getElementById('raiseOverlay').classList.add('open');
+      updateRaiseConfirmLabel();
+    }
+    function isRaiseAllIn(amount) {
+      const me = room.state.players.get(room.sessionId);
+      return !!me && amount >= me.currentBet + me.chips;
+    }
+    function updateRaiseConfirmLabel() {
+      const amount = Number(document.getElementById('raiseAmount').value);
+      document.getElementById('raiseConfirmBtn').textContent = isRaiseAllIn(amount) ? 'オールイン' : '確定';
     }
     function closeRaise() {
       document.getElementById('raiseOverlay').classList.remove('open');
     }
     function confirmRaise() {
       const amount = Number(document.getElementById('raiseAmount').value);
-      room.send('action', { type: 'raise', amount: amount });
+      // 手持ちを全部賭ける額ならオールインとして送る(サーバーはちょうどオールインのレイズを受け付けない)
+      room.send('action', isRaiseAllIn(amount) ? { type: 'allin' } : { type: 'raise', amount: amount });
       closeRaise();
     }
 
