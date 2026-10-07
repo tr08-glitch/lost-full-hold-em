@@ -84,11 +84,15 @@
   .bet-chip .lbl { font-size:11px; letter-spacing:1px; }
   .bet-chip .amt { font-size:22px; font-weight:bold; }
   .bet-chip.active { background:#2a2208; border:2px solid #e0b040; color:#ffd24d; box-shadow:0 0 10px #e0b04055; }
+  .bet-sub { font-size:10px; color:#888; margin-top:2px; }
   .bet-chip.allin { background:#3a0d0d; border-color:#ff4d4d; color:#ff8080; }
   .position-badge { position:absolute; top:-10px; right:-10px; min-width:26px; height:20px; padding:0 6px; border-radius:10px; background:#f0d060; color:#1a1a00; font-size:10px; font-weight:bold; display:flex; align-items:center; justify-content:center; box-shadow:0 0 6px #000000aa; z-index:2; white-space:nowrap; }
   .game-log { position:absolute; bottom:212px; left:16px; width:220px; max-height:110px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 10px; font-size:11px; color:#aaa; overflow-y:auto; z-index:3; }
   .game-log .log-title { color:#777; font-size:10px; margin-bottom:4px; }
   .game-log .log-line { margin-bottom:3px; line-height:1.4; }
+  #rulesBody h4 { margin:14px 0 4px; color:#e0b040; font-size:13px; }
+  #rulesBody p, #rulesBody ul { margin:0 0 6px; }
+  #rulesBody ul { padding-left:20px; }
   .top-right-actions { position:absolute; top:16px; right:16px; display:flex; gap:8px; z-index:5; }
   .top-right-actions button { background:#1a1a1a; border:1px solid #666; color:#ccc; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
   .top-right-actions button.surrender { border-color:#b91c1c; color:#e05252; }
@@ -126,6 +130,9 @@
   .body-icon { width:32px; height:32px; border:1px solid #b91c1c; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; background:#b91c1c22; }
   .red-note { font-size:12px; color:#e05252; }
   .stat { background:#1a1a1a; border:1px solid #444; border-radius:4px; padding:4px 10px; font-size:13px; flex:1; }
+  .pot-display { position:absolute; top:calc(48% - 92px); left:50%; transform:translateX(-50%); text-align:center; background:#1a1608; border:2px solid #e0b040; border-radius:24px; padding:6px 22px; color:#ffd24d; box-shadow:0 0 14px #e0b04044; z-index:3; white-space:nowrap; }
+  .pot-display .lbl { font-size:11px; letter-spacing:2px; color:#c9a43a; margin-right:8px; }
+  .pot-display .amt { font-size:26px; font-weight:bold; }
   .community-area { position:absolute; top:48%; left:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:24px; }
   .community-cards { display:flex; gap:6px; }
   .deck-box { width:48px; height:72px; background:#1a1a1a; border:1px solid #b91c1c; border-radius:5px; display:flex; align-items:center; justify-content:center; font-size:12px; color:#e05252; text-align:center; }
@@ -190,6 +197,10 @@
     opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
     font-family: Georgia, serif;
   }
+  .win-banner { position:absolute; top:42%; left:50%; transform:translate(-50%,-50%) scale(.8); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; z-index:16; text-align:center; background:#1a1608ee; border:3px solid #ffd24d; border-radius:16px; padding:18px 40px; box-shadow:0 0 40px #ffd24d66; color:#ffd24d; }
+  .win-banner .wb-title { font-size:34px; font-weight:bold; letter-spacing:4px; }
+  .win-banner .wb-pot { font-size:20px; margin-top:6px; color:#fff1b8; }
+  .win-banner.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
   .phase-banner.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
 </style>
 </head>
@@ -228,6 +239,17 @@
     </div>
   </div>
 
+  <div id="rulesModal" style="display:none;position:fixed;inset:0;z-index:10002;background:#000000cc;align-items:center;justify-content:center;" onclick="if(event.target===this)closeRules()">
+    <div style="background:#141414;border:1px solid #b91c1c;border-radius:10px;width:min(560px,94vw);max-height:86vh;display:flex;flex-direction:column;color:#ddd;">
+      <div style="display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid #333;">
+        <h3 style="margin:0;flex:1;color:#e05252;">ルール</h3>
+        <button id="rulesTabBasic" onclick="showRulesTab('basic')" style="padding:6px 12px;border-radius:6px;border:1px solid #666;background:#222;color:#eee;cursor:pointer;">基本</button>
+        <button id="rulesTabLost" onclick="showRulesTab('lost')" style="padding:6px 12px;border-radius:6px;border:1px solid #666;background:#222;color:#eee;cursor:pointer;">ロストフル</button>
+        <button onclick="closeRules()" style="padding:6px 12px;border-radius:6px;border:1px solid #666;background:#222;color:#eee;cursor:pointer;">閉じる</button>
+      </div>
+      <div id="rulesBody" style="padding:16px 20px;overflow-y:auto;font-size:13px;line-height:1.7;"></div>
+    </div>
+  </div>
   <!-- ================= ルームロビー画面 ================= -->
   <div class="app-screen screen-room" id="screen-room">
     <div class="room-left">
@@ -236,6 +258,7 @@
         <span>GMのみ表示</span>
         <button onclick="openSettings()" style="width:100%;">ゲーム設定</button>
       </div>
+      <button onclick="openRules()" style="width:100%;margin-top:8px;">ルール</button>
       <div class="status-line" id="statusLine"></div>
       <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
         <div class="gm-only"><span>GMのみ表示</span><button id="startBtn" class="primary" style="width:100%;" onclick="startGame()" disabled>ゲーム開始</button></div>
@@ -318,6 +341,7 @@
   </div>
   <div class="app-screen screen-table" id="screen-table">
     <div class="phase-banner" id="phaseBanner"></div>
+    <div class="win-banner" id="winBanner"><div class="wb-title">ラウンド勝利</div><div class="wb-pot">獲得ポット <span id="wbAmount">0</span></div></div>
     <div class="action-turn-banner" id="actionTurnBanner">Action</div>
     <div class="round-box">残りラウンド<br><span class="val">-</span></div>
     <div class="turn-timer" id="turnTimer" style="display:none;"><div class="tt-name" id="ttName"></div><div class="tt-sec" id="ttSec">0</div><div>持ち時間(秒)</div></div>
@@ -326,6 +350,7 @@
     <div class="top-right-actions">
       <button class="surrender" onclick="confirmAction('surrender')">降参</button>
       <button onclick="confirmAction('leave')">退室</button>
+      <button onclick="openRules()">ルール</button>
       <button id="chatToggleBtn" onclick="toggleChatHistory()">表示</button>
     </div>
 
@@ -345,6 +370,7 @@
       <div class="log-title">ゲームログ</div>
     </div>
 
+    <div class="pot-display" id="potDisplay"><span class="lbl">POT</span><span class="amt" id="potAmount">0</span></div>
     <div class="community-area">
       <div class="used-box">使用済</div>
       <div class="community-cards">
@@ -666,6 +692,7 @@
         renderLobbyPlayers();
         if (room.state.mode !== undefined) updateStatusLine();
         if (room.state.phase === 'gameEnd') {
+          lastRoundShown = 0; // 次のゲームの1ラウンド目でも「1ラウンド」を出すため
           const meR = room.state.players.get(room.sessionId);
           const isGMr = !!(meR && meR.isGM);
           document.getElementById('resultGmButtons').style.display = isGMr ? 'flex' : 'none';
@@ -821,6 +848,7 @@
       myHoleCards = null;
       lastActionPlayerId = null;
       lastPhase = null;
+      lastRoundShown = 0;
       document.getElementById('actionTurnBanner').classList.remove('show');
       document.getElementById('phaseBanner').classList.remove('show');
       chatMessages = [];
@@ -831,6 +859,38 @@
       if (flowMsgs) flowMsgs.innerHTML = '';
       if (historyMsgs) historyMsgs.innerHTML = '';
       showScreen('screen-title');
+    }
+
+
+    // ---------- ルール説明 ----------
+    const RULES_HTML = {
+      basic: '<h4>勝利条件</h4><p>設定したラウンド数が終わった時点で、<b>所持チップが最も多い人</b>が勝ち。生き残りが1人以下になった場合もそのハンド後に終了。</p>' +
+        '<h4>基本(テキサスホールデム)</h4><p>手札2枚+場の5枚から、最も強い5枚の役で勝負。プリフロップ→フロップ→ターン→リバーの順にベッティング。</p>' +
+        '<h4>役の強さ(強い順)</h4><p>ロイヤルフラッシュ / ストレートフラッシュ / フォーカード / フルハウス / フラッシュ / ストレート / スリーカード / ツーペア / ワンペア / ハイカード</p>' +
+        '<h4>ブラインドとポジション</h4><p>SB=BBの半分。BTNはラウンドごとに移動。プリフロップは(4人以上なら)UTGから、フロップ以降はSB側から行動。</p>' +
+        '<h4>操作</h4><ul><li><b>チェック</b>:誰もベットしていないとき、賭けずに回す</li><li><b>コール</b>:今のベット額に合わせる(足りなければ<b>オールイン</b>表示)</li><li><b>レイズ</b>:ベットを上げる。<b>上限なし</b>(最小は今のベット+SB、最大は手持ちチップ=オールイン)</li><li><b>フォールド</b>:降りる</li></ul>' +
+        '<h4>持ち時間</h4><p>1手番の制限時間(GM設定、初期30秒)。過ぎると自動でフォールド。残り秒数は左側に表示。</p>' +
+        '<h4>降参・チップ切れ</h4><p>降参するとゲームから外れて観戦に。結果発表では<b>降参者は常に最下位</b>(先に降参した人ほど下)。チップが0になった人も以降のラウンドから外れます。</p>' +
+        '<h4>ジョーカー</h4><p>設定でONにすると山札に追加。<b>どんなカードにもなるワイルド</b>。</p>' +
+        '<h4>結果発表</h4><p>終了時にチップの多い順で順位表示。GMは「ニューゲーム」「ルームへ戻る」を選べます。</p>',
+      lost: '<h4>ロストフルモードとは</h4><p>身体の一部を<b>いつでも</b>チップに換金できる(元に戻せない)モード。換金するたびに<b>ストレス</b>が溜まります。</p>' +
+        '<h4>換金できる部位(チップ / ストレス)</h4><ul><li>指:30 / 3(左右5本ずつ。失うほど手札を落とす・公開される)</li><li>歯:200 / 10(<b>以後のストレス上昇が2倍</b>)</li><li>耳(左右):70 / 10</li><li>肺(左右):150 / 25(<b>両方失うと死亡</b>)</li><li>目(左右):250 / 15</li><li>腕(左右):250 / 20(指5本も同時に失う。<b>チェック/コールしかできなくなる</b>)</li><li>心臓:750 / 0(<b>即死</b>)</li></ul>' +
+        '<h4>ストレスと廃人</h4><p>ストレスが<b>100</b>に達すると<b>廃人</b>になり、ゲームに参加できなくなります。死亡・廃人になる換金は、実行前に確認が出ます。ジョーカーが配られるたびにストレス+5。</p>' +
+        '<h4>ロストイン</h4><p>残った部位を<b>すべて</b>換金してオールインする捨て身の技(心臓除く)。宣言すると合計額が<b>赤札</b>として提示され、他の人は「赤札分を支払ってコール」「対抗ロストイン」「フォールド」から選びます。全員がフォールドなら不発。実行した人は<b>勝っても負けても死亡</b>。腕を失っていても宣言できます。</p>' +
+        '<h4>死亡・廃人でも</h4><p>その時点のチップ量で順位が決まるので、死んでも勝者になれることがあります。</p>'
+    };
+    function showRulesTab(tab) {
+      document.getElementById('rulesBody').innerHTML = RULES_HTML[tab];
+      document.getElementById('rulesTabBasic').style.borderColor = tab === 'basic' ? '#e05252' : '#666';
+      document.getElementById('rulesTabLost').style.borderColor = tab === 'lost' ? '#e05252' : '#666';
+    }
+    function openRules() {
+      const mode = (typeof room !== 'undefined' && room && room.state && room.state.mode === 'lostfull') ? 'lost' : 'basic';
+      showRulesTab(mode);
+      document.getElementById('rulesModal').style.display = 'flex';
+    }
+    function closeRules() {
+      document.getElementById('rulesModal').style.display = 'none';
     }
 
     // ---------- 対戦卓画面:カード表記ユーティリティ(本物のトランプ風レイアウト) ----------
@@ -1004,6 +1064,14 @@
       });
 
       room.onMessage('showdownResult', function (message) {
+        const mine = message.results.find(function (r) { return r.playerId === room.sessionId && r.amountWon > 0; });
+        if (mine) {
+          const wb = document.getElementById('winBanner');
+          document.getElementById('wbAmount').textContent = mine.amountWon;
+          wb.classList.add('show');
+          clearTimeout(wb._t);
+          wb._t = setTimeout(function () { wb.classList.remove('show'); }, 3000);
+        }
         message.results.forEach(function (r) {
           const el = document.createElement('div');
           el.className = 'log-line';
@@ -1050,11 +1118,13 @@
       const wasMyTurnBefore = lastActionPlayerId === room.sessionId;
       if (isMyTurnNow && !wasMyTurnBefore) {
         const banner = document.getElementById('actionTurnBanner');
-        banner.classList.add('show');
         clearTimeout(actionBannerTimer);
+        // 中央のラウンド/フェーズ表示が終わってから「Action」を出す
+        const wait = Math.max(0, bannerBusyUntil - Date.now());
         actionBannerTimer = setTimeout(function () {
-          banner.classList.remove('show');
-        }, 1000);
+          banner.classList.add('show');
+          setTimeout(function () { banner.classList.remove('show'); }, 1000);
+        }, wait);
       }
       lastActionPlayerId = state.actionPlayerId;
     }
@@ -1064,15 +1134,30 @@
     const PHASE_LABELS = { preflop: 'プリフロップ', flop: 'フロップ', turn: 'ターン', river: 'リバー' };
 
     /** プリフロップ/フロップ/ターン/リバーに切り替わった瞬間、画面中央に2秒間表示する */
+    let lastRoundShown = 0;
+    let bannerBusyUntil = 0; // 中央バナーの表示が終わる時刻(この間はActionバナーの表示を後ろにずらす)
+    function showCenterBanner(text, ms, delay) {
+      setTimeout(function () {
+        const banner = document.getElementById('phaseBanner');
+        banner.textContent = text;
+        banner.classList.add('show');
+        setTimeout(function () { banner.classList.remove('show'); }, ms);
+      }, delay);
+    }
     function checkPhaseBanner(state) {
       if (state.phase !== lastPhase && PHASE_LABELS[state.phase]) {
-        const banner = document.getElementById('phaseBanner');
-        banner.textContent = PHASE_LABELS[state.phase];
-        banner.classList.add('show');
         clearTimeout(phaseBannerTimer);
-        phaseBannerTimer = setTimeout(function () {
-          banner.classList.remove('show');
-        }, 2000);
+        document.getElementById('phaseBanner').classList.remove('show');
+        if (state.phase === 'preflop' && state.roundNumber !== lastRoundShown) {
+          // ラウンド開始時:「Nラウンド」を2秒表示 → そのあと「プリフロップ」を2秒表示
+          lastRoundShown = state.roundNumber;
+          showCenterBanner(state.roundNumber + 'ラウンド', 2000, 0);
+          showCenterBanner(PHASE_LABELS.preflop, 2000, 2200);
+          bannerBusyUntil = Date.now() + 4200;
+        } else {
+          showCenterBanner(PHASE_LABELS[state.phase], 2000, 0);
+          bannerBusyUntil = Date.now() + 2000;
+        }
       }
       lastPhase = state.phase;
     }
@@ -1128,8 +1213,9 @@
           '<div class="name">' + escapeHtml(p.name) + statusNote + '</div>' +
           '<div class="cards">' + cardsHtml + '</div>' +
           '<div class="stat-line">チップ: ' + p.chips + '</div>' +
-          '<div class="bet-chip' + (p.currentBet > 0 ? ' active' : '') + (p.allIn ? ' allin' : '') + '"><span class="lbl">' +
-            (p.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + p.currentBet + '</span></div>';
+          '<div class="bet-chip' + (p.totalRoundBet > 0 ? ' active' : '') + (p.allIn ? ' allin' : '') + '"><span class="lbl">' +
+            (p.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + p.totalRoundBet + '</span></div>' +
+          '<div class="bet-sub">今回の賭け: ' + p.currentBet + '</div>';
         area.appendChild(div);
       });
     }
@@ -1146,8 +1232,9 @@
       }
       document.getElementById('selfChip').textContent = 'チップ: ' + me.chips;
       const sb = document.getElementById('selfBet');
-      sb.className = 'bet-chip' + (me.currentBet > 0 ? ' active' : '') + (me.allIn ? ' allin' : '');
-      sb.innerHTML = '<span class="lbl">' + (me.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + me.currentBet + '</span>';
+      sb.className = 'bet-chip' + (me.totalRoundBet > 0 ? ' active' : '') + (me.allIn ? ' allin' : '');
+      sb.innerHTML = '<span class="lbl">' + (me.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + me.totalRoundBet + '</span>' +
+        '<span class="bet-sub" style="margin-left:8px;">今回の賭け: ' + me.currentBet + '</span>';
       if (me.revealedHoleCards.length === 2) {
         renderCardEl(document.getElementById('myCard1'), me.revealedHoleCards[0]);
         renderCardEl(document.getElementById('myCard2'), me.revealedHoleCards[1]);
@@ -1157,6 +1244,7 @@
     }
 
     function renderCommunity(state) {
+      document.getElementById('potAmount').textContent = state.pot;
       const boxes = document.querySelectorAll('.community-card');
       for (let i = 0; i < boxes.length; i++) {
         renderCardEl(boxes[i], state.communityCards[i]);
