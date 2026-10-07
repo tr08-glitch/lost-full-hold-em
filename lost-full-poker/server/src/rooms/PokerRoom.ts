@@ -96,6 +96,12 @@ export class PokerRoom extends Room<RoomState> {
     });
     this.onMessage("newGame", (client) => this.handleNewGame(client));
     this.onMessage("returnToLobby", (client) => this.handleReturnToLobby(client));
+    this.onMessage("rouletteOpen", (client, m: { bet?: number }) => this.rouletteOpen(client, m));
+    this.onMessage("rouletteSetBet", (client, m: { bet?: number }) => this.rouletteSetBet(client, m));
+    this.onMessage("rouletteJoin", (client) => this.rouletteJoin(client));
+    this.onMessage("rouletteBegin", (client) => this.rouletteBegin(client));
+    this.onMessage("roulettePull", (client) => this.roulettePull(client));
+    this.onMessage("rouletteClose", (client) => this.rouletteClose(client));
     this.onMessage("kick", (client, message: { targetId?: string }) => this.handleKick(client, message));
     this.onMessage("chat", (client, message: { target?: string; text?: string }) => this.handleChat(client, message));
     console.log(`[LFH] onCreate roomId=${this.roomId}`);
@@ -213,7 +219,11 @@ export class PokerRoom extends Room<RoomState> {
     if (!player) return;
 
     if (!this.state.gameStarted) {
-      // ロビー中の離脱はそのまま座席から取り除く
+      // ロビー中の離脱はそのまま座席から取り除く(ミニゲーム進行中なら中止)
+      if (this.state.roulette.phase === "recruiting" || this.state.roulette.phase === "playing") {
+        this.rouletteReset();
+        this.pushLog("参加者が退室したためロシアンルーレットを中止しました");
+      }
       this.state.players.delete(sessionId);
       const idx = this.state.seatOrder.indexOf(sessionId);
       if (idx !== -1) this.state.seatOrder.splice(idx, 1);
@@ -303,6 +313,167 @@ export class PokerRoom extends Room<RoomState> {
     }
   }
 
+
+  // ---------- ミニゲーム:ロシアンルーレット(ロビー専用) ----------
+  // 掛け金は「次のゲームの初期チップ」から支払う。弾に当たった1人が掛け金を失い、生存者で山分けする。
+  private rouletteBulletAt = 0; // 実弾が出る回(0始まり、サーバー内部のみ保持)
+  private rouletteTimer: { clear: () => void } | null = null;
+  private rouletteTicker: { clear: () => void } | null = null;
+  private static readonly ROULETTE_TURN_SEC = 15;
+
+  private rouletteReset() {
+    this.rouletteTimer?.clear();
+    this.rouletteTicker?.clear();
+    this.rouletteTimer = null;
+    this.rouletteTicker = null;
+    const r = this.state.roulette;
+    r.phase = "idle";
+    r.bet = 0;
+    r.participants.clear();
+    r.turnPlayerId = "";
+    r.pulls = 0;
+    r.loserId = "";
+    r.payoutEach = 0;
+    r.turnLeft = 0;
+  }
+
+  /** ゲーム開始時、ミニゲームの増減を初期チップに反映して0に戻す */
+  private applyChipDeltas() {
+    for (const id of this.state.seatOrder as string[]) {
+      const p = this.state.players.get(id);
+      if (!p) continue;
+      p.chips = Math.max(1, this.state.startingChips + p.chipDelta);
+      p.chipDelta = 0;
+    }
+  }
+
+  private rouletteMaxBet(): number {
+    return Math.max(1, this.state.bigBlind); // 「少量」:BBと同じ額まで
+  }
+
+  private rouletteOpen(client: Client, m: { bet?: number }) {
+    const gm = this.state.players.get(client.sessionId);
+    if (!gm?.isGM || this.state.gameStarted) return;
+    const r = this.state.roulette;
+    if (r.phase === "recruiting" || r.phase === "playing") return;
+    const bet = Math.floor(Number(m?.bet));
+    if (!Number.isFinite(bet) || bet < 1 || bet > this.rouletteMaxBet()) return;
+    this.rouletteReset();
+    r.bet = bet;
+    r.phase = "recruiting";
+    r.participants.push(client.sessionId);
+    this.pushLog(`ロシアンルーレット参加者募集(掛け金${bet})`);
+  }
+
+  private rouletteSetBet(client: Client, m: { bet?: number }) {
+    const gm = this.state.players.get(client.sessionId);
+    const r = this.state.roulette;
+    if (!gm?.isGM || r.phase !== "recruiting") return;
+    const bet = Math.floor(Number(m?.bet));
+    if (!Number.isFinite(bet) || bet < 1 || bet > this.rouletteMaxBet()) return;
+    r.bet = bet;
+    // 掛け金を払えなくなった参加者(GM以外)は自動で外す
+    for (const id of [...(r.participants as string[])]) {
+      const p = this.state.players.get(id);
+      if (!p || p.isGM) continue;
+      if (this.state.startingChips + p.chipDelta - bet < 1) {
+        const i = (r.participants as string[]).indexOf(id);
+        if (i !== -1) r.participants.splice(i, 1);
+      }
+    }
+  }
+
+  private rouletteJoin(client: Client) {
+    const r = this.state.roulette;
+    if (r.phase !== "recruiting") return;
+    const p = this.state.players.get(client.sessionId);
+    if (!p) return;
+    const idx = (r.participants as string[]).indexOf(client.sessionId);
+    if (idx !== -1) {
+      if (p.isGM) return; // GMは主催者なので抜けられない
+      r.participants.splice(idx, 1);
+      return;
+    }
+    if (this.state.startingChips + p.chipDelta - r.bet < 1) return; // 掛け金を払えない
+    r.participants.push(client.sessionId);
+  }
+
+  private rouletteBegin(client: Client) {
+    const gm = this.state.players.get(client.sessionId);
+    const r = this.state.roulette;
+    if (!gm?.isGM || r.phase !== "recruiting" || r.participants.length < 2) return;
+    // 参加者の席順を並べ直す
+    const order = (this.state.seatOrder as string[]).filter((id) => (r.participants as string[]).includes(id));
+    r.participants.clear();
+    order.forEach((id) => r.participants.push(id));
+    this.rouletteBulletAt = Math.floor(Math.random() * 6);
+    r.pulls = 0;
+    r.phase = "playing";
+    this.rouletteSetTurn(order[0]!);
+    this.pushLog("ロシアンルーレット開始!");
+  }
+
+  private rouletteSetTurn(playerId: string) {
+    const r = this.state.roulette;
+    this.rouletteTimer?.clear();
+    this.rouletteTicker?.clear();
+    r.turnPlayerId = playerId;
+    r.turnLeft = PokerRoom.ROULETTE_TURN_SEC;
+    const deadline = Date.now() + PokerRoom.ROULETTE_TURN_SEC * 1000;
+    this.rouletteTicker = this.clock.setInterval(() => {
+      r.turnLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    }, 500);
+    this.rouletteTimer = this.clock.setTimeout(
+      () => this.rouletteShoot(playerId),
+      PokerRoom.ROULETTE_TURN_SEC * 1000
+    );
+  }
+
+  private roulettePull(client: Client) {
+    const r = this.state.roulette;
+    if (r.phase !== "playing" || r.turnPlayerId !== client.sessionId) return;
+    this.rouletteShoot(client.sessionId);
+  }
+
+  private rouletteShoot(playerId: string) {
+    const r = this.state.roulette;
+    if (r.phase !== "playing" || r.turnPlayerId !== playerId) return;
+    const hit = r.pulls === this.rouletteBulletAt;
+    r.pulls++;
+    this.broadcast("rouletteShot", { playerId, hit, pull: r.pulls });
+    const name = this.state.players.get(playerId)?.name ?? "";
+    if (!hit) {
+      this.pushLog(`${name}は引き金を引いた…カチッ。セーフ`);
+      const order = r.participants as string[];
+      const next = order[(order.indexOf(playerId) + 1) % order.length]!;
+      this.rouletteSetTurn(next);
+      return;
+    }
+    // 命中:掛け金を失い、生存者で山分け
+    this.rouletteTimer?.clear();
+    this.rouletteTicker?.clear();
+    const survivors = (r.participants as string[]).filter((id) => id !== playerId);
+    const each = Math.floor(r.bet / survivors.length);
+    const loser = this.state.players.get(playerId);
+    if (loser) loser.chipDelta -= each * survivors.length;
+    for (const id of survivors) {
+      const sp = this.state.players.get(id);
+      if (sp) sp.chipDelta += each;
+    }
+    r.loserId = playerId;
+    r.payoutEach = each;
+    r.turnPlayerId = "";
+    r.turnLeft = 0;
+    r.phase = "result";
+    this.pushLog(`${name}が被弾!次のゲームの初期チップ -${each * survivors.length}(生存者は+${each})`);
+  }
+
+  private rouletteClose(client: Client) {
+    const gm = this.state.players.get(client.sessionId);
+    if (!gm?.isGM || this.state.gameStarted) return;
+    this.rouletteReset();
+  }
+
   // ---------- ゲーム開始 ----------
 
   private handleStartGame(client: Client) {
@@ -311,6 +482,8 @@ export class PokerRoom extends Room<RoomState> {
     if (this.state.gameStarted) return;
     if (this.state.players.size < 2) return;
 
+    this.rouletteReset();
+    this.applyChipDeltas();
     this.state.gameStarted = true;
     this.state.roundNumber = 0;
     this.state.dealerSeatIndex = Math.floor(Math.random() * this.state.seatOrder.length);
@@ -417,6 +590,7 @@ export class PokerRoom extends Room<RoomState> {
     this.resetForNewGame();
     if (this.state.seatOrder.length < 2) return this.handleReturnToLobby(client);
     this.state.dealerSeatIndex = Math.floor(Math.random() * this.state.seatOrder.length);
+    this.applyChipDeltas();
     this.pushLog("--- ニューゲーム ---");
     this.startNewRound();
   }

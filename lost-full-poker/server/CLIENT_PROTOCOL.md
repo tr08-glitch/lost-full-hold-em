@@ -246,3 +246,11 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 ## 今後の課題(未着手)
 - ルームコード(4桁)を人に伝える手段(コピー機能など)はUI未実装。今は画面に表示するのみ
 - チャット機能はサーバー未実装(ルームロビー画面のチャットUIは見た目のみ)
+
+
+## ミニゲーム:ロシアンルーレット(ロビー専用)
+- state: `roulette { phase: idle|recruiting|playing|result, bet, participants[], turnPlayerId, pulls, loserId, payoutEach, turnLeft }`、`players[].chipDelta`(次のゲームの初期チップ加減額。ゲーム開始/ニューゲームで適用され0に戻る)
+- client→server: `rouletteOpen {bet}`(GM。1〜BB)/ `rouletteJoin`(参加・辞退のトグル)/ `rouletteBegin`(GM、2人以上)/ `roulettePull`(手番の人)/ `rouletteClose`(GM。中止または結果を閉じる)
+- server→client: `rouletteShot {playerId, hit, pull}`
+- 手番は15秒で自動的に引かれる。命中した1人が掛け金を失い、生存者で等分(端数切り捨て)。
+- 追加: `rouletteSetBet {bet}`(GM、募集中のみ掛け金を変更。払えなくなった参加者は自動で外れる)

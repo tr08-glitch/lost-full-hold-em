@@ -267,6 +267,7 @@
       <button onclick="openRules()" style="width:100%;margin-top:8px;">ルール</button>
       <div class="status-line" id="statusLine"></div>
       <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
+        <div class="gm-only"><span>GMのみ表示</span><button id="rouletteStartBtn" style="width:100%;border-color:#b91c1c;color:#e05252;" onclick="startRoulette()">🔫 ロシアンルーレットをプレイ</button></div>
         <div class="gm-only"><span>GMのみ表示</span><button id="startBtn" class="primary" style="width:100%;" onclick="startGame()" disabled>ゲーム開始</button></div>
         <button onclick="leaveRoom()">ルームから抜ける</button>
         <div class="gm-only"><span>GMのみ表示</span><button style="width:100%;" onclick="leaveRoom()">ルーム解散</button></div>
@@ -286,6 +287,11 @@
           <input type="text" id="lobbyChatInput" placeholder="チャット入力" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229) sendLobbyChat()">
           <button class="chat-send-btn primary" onclick="sendLobbyChat()">送信</button>
         </div>
+      </div>
+      <div class="chat-box" id="roulettePanel" style="display:none;overflow-y:auto;border-color:#b91c1c;">
+        <label style="color:#e05252;letter-spacing:2px;">🔫 ロシアンルーレット</label>
+        <div style="font-size:11px;color:#999;margin:4px 0 10px;">次のゲームの初期チップを少し賭けるミニゲーム。弾に当たった1人が掛け金を失い、生き残った人で山分け。</div>
+        <div id="rouletteBody"></div>
       </div>
     </div>
   </div>
@@ -703,6 +709,7 @@
       room.onStateChange(function () {
         document.getElementById('roomIdText').textContent = room.state.roomCode || '----';
         renderLobbyPlayers();
+        renderRoulette();
         if (room.state.mode !== undefined) updateStatusLine();
         if (room.state.phase === 'gameEnd') {
           lastRoundShown = 0; // 次のゲームの1ラウンド目でも「1ラウンド」を出すため
@@ -795,7 +802,8 @@
       const canKick = !!(meForKick && meForKick.isGM);
       players.forEach(function (p) {
         const li = document.createElement('li');
-        li.textContent = p.name + (p.isGM ? '(GM)' : '') + (p.connected ? '' : '(切断中)');
+        li.textContent = p.name + (p.isGM ? '(GM)' : '') + (p.connected ? '' : '(切断中)') +
+          (p.chipDelta ? '  次回初期チップ ' + (p.chipDelta > 0 ? '+' : '') + p.chipDelta : '');
         if (canKick && p.id !== room.sessionId) {
           const kb = document.createElement('button');
           kb.textContent = 'キック';
@@ -862,6 +870,7 @@
       lastActionPlayerId = null;
       lastPhase = null;
       lastRoundShown = 0;
+      lastRoulettePhase = 'idle';
       document.getElementById('actionTurnBanner').classList.remove('show');
       document.getElementById('phaseBanner').classList.remove('show');
       chatMessages = [];
@@ -874,6 +883,90 @@
       showScreen('screen-title');
     }
 
+
+
+    // ---------- ミニゲーム:ロシアンルーレット ----------
+    let lastRoulettePhase = 'idle';
+    let rouletteFlash = '';
+    function startRoulette() {
+      if (!room) return;
+      room.send('rouletteOpen', { bet: room.state.bigBlind }); // 掛け金の初期値はBB(募集中に変更可)
+    }
+    function sendRouletteBet() {
+      room.send('rouletteSetBet', { bet: Number(document.getElementById('rouletteBetInput').value) });
+    }
+    function pName(id) {
+      const p = room.state.players.get(id);
+      return p ? escapeHtml(p.name) : '?';
+    }
+    function rBtn(label, onclick, opts) {
+      opts = opts || {};
+      return '<button ' + (opts.disabled ? 'disabled ' : '') + 'onclick="' + onclick + '" style="padding:10px 16px;border-radius:8px;border:1px solid ' + (opts.color || '#b91c1c') +
+        ';background:' + (opts.bg || '#2a0c0c') + ';color:#fff;cursor:pointer;font-size:14px;margin:4px 4px 0 0;' + (opts.disabled ? 'opacity:.4;' : '') + '">' + label + '</button>';
+    }
+    function renderRoulette() {
+      if (!room || !room.state || !room.state.roulette) return;
+      const r = room.state.roulette;
+      const st = room.state;
+      const me = st.players.get(room.sessionId);
+      const isGM = !!(me && me.isGM);
+      const panel = document.getElementById('roulettePanel');
+      const chat = document.querySelector('#screen-room .room-right-wrap .chat-box');
+      const active = r.phase !== 'idle' && !st.gameStarted;
+      // ミニゲーム中は、右下のチャット欄がミニゲーム画面に切り替わる(全員)
+      panel.style.display = active ? 'flex' : 'none';
+      panel.style.flexDirection = 'column';
+      chat.style.display = active ? 'none' : '';
+      const startBtn = document.getElementById('rouletteStartBtn');
+      if (startBtn) startBtn.disabled = r.phase === 'recruiting' || r.phase === 'playing';
+      if (!active) { lastRoulettePhase = r.phase; return; }
+      lastRoulettePhase = r.phase;
+      const maxBet = Math.max(1, st.bigBlind); // 掛け金の上限はBBと同じ額
+      const betEl = document.getElementById('rouletteBetInput');
+      const keepBet = betEl ? betEl.value : null; // 入力中の掛け金は再描画で消さない
+      const parts = Array.from(r.participants);
+      let h = '';
+      if (r.phase === 'recruiting') {
+        const joined = parts.indexOf(room.sessionId) !== -1;
+        h += '<div style="font-size:18px;color:#ffd24d;margin-bottom:8px;">掛け金 ' + r.bet + '</div>';
+        if (isGM) {
+          h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;"><span style="font-size:12px;">変更(1〜' + maxBet + ')</span><input type="number" id="rouletteBetInput" value="' + r.bet + '" min="1" max="' + maxBet +
+            '" style="width:90px;padding:6px;background:#1a1a1a;border:1px solid #444;color:#eee;border-radius:6px;">' + rBtn('変更', 'sendRouletteBet()', { bg: '#222', color: '#666' }) + '</div>';
+        }
+        h += '<div style="margin-bottom:6px;">参加者(' + parts.length + '人)</div>';
+        h += parts.map(function (id) { return '<div style="padding:3px 0;">● ' + pName(id) + '</div>'; }).join('');
+        if (!isGM) h += rBtn(joined ? '参加をやめる' : '参加する', "room.send('rouletteJoin')", { bg: joined ? '#222' : '#5a1010' });
+        if (isGM) {
+          h += '<div style="margin-top:10px;">' + rBtn('開始', "room.send('rouletteBegin')", { disabled: parts.length < 2, bg: '#b91c1c' }) + rBtn('中止', "room.send('rouletteClose')", { bg: '#222', color: '#666' }) + '</div>';
+          if (parts.length < 2) h += '<div style="font-size:11px;color:#999;margin-top:6px;">2人以上の参加が必要です</div>';
+        }
+      } else if (r.phase === 'playing') {
+        const myTurn = r.turnPlayerId === room.sessionId;
+        let chambers = '';
+        for (let i = 0; i < 6; i++) {
+          const used = i < r.pulls;
+          chambers += '<span style="display:inline-block;width:34px;height:34px;line-height:34px;margin:0 4px;border-radius:50%;border:2px solid ' + (used ? '#4ade80' : '#888') + ';color:' + (used ? '#4ade80' : '#555') + ';font-size:11px;text-align:center;">' + (used ? 'セーフ' : '?') + '</span>';
+        }
+        h += '<div style="text-align:center;margin:4px 0 10px;">' + chambers + '</div>';
+        h += '<div style="text-align:center;font-size:18px;color:#ffd24d;">' + (myTurn ? 'あなたの番' : pName(r.turnPlayerId) + 'の番') + ' <span style="font-size:24px;font-weight:bold;color:' + (r.turnLeft <= 5 ? '#ff5a5a' : '#4ade80') + ';">' + r.turnLeft + '</span></div>';
+        h += '<div style="text-align:center;min-height:28px;font-size:20px;font-weight:bold;color:#e0e0e0;">' + rouletteFlash + '</div>';
+        h += '<div style="text-align:center;">' + rBtn('🔫 引き金を引く', "room.send('roulettePull')", { disabled: !myTurn, bg: '#b91c1c' }) + '</div>';
+        h += '<div style="font-size:11px;color:#999;margin-top:8px;text-align:center;">弾は6発のうち1発。時間切れは自動で引かれます</div>';
+      } else if (r.phase === 'result') {
+        h += '<div style="text-align:center;font-size:30px;font-weight:bold;color:#ff4d4d;letter-spacing:4px;">BANG!</div>';
+        h += '<div style="text-align:center;font-size:16px;margin:6px 0;">' + pName(r.loserId) + ' が被弾</div>';
+        parts.forEach(function (id) {
+          const lost = id === r.loserId;
+          h += '<div style="display:flex;justify-content:space-between;padding:5px 10px;margin-bottom:4px;border-radius:6px;background:#1a1010;"><span>' + pName(id) + '</span><span style="font-weight:bold;color:' + (lost ? '#ff6b6b' : '#4ade80') + ';">' +
+            (lost ? '次回の初期チップ -' + (r.payoutEach * (parts.length - 1)) : '次回の初期チップ +' + r.payoutEach) + '</span></div>';
+        });
+        if (isGM) h += '<div style="margin-top:8px;">' + rBtn('もう一度', 'startRoulette()', { bg: '#5a1010' }) + rBtn('ロビーに戻る', "room.send('rouletteClose')", { bg: '#222', color: '#666' }) + '</div>';
+        else h += '<div style="color:#999;text-align:center;margin-top:8px;">GMの操作を待っています…</div>';
+      }
+      document.getElementById('rouletteBody').innerHTML = h;
+      const betEl2 = document.getElementById('rouletteBetInput');
+      if (betEl2 && keepBet !== null) betEl2.value = keepBet;
+    }
 
     // ---------- ルール説明 ----------
     const RULES_HTML = {
@@ -1058,6 +1151,12 @@
       room.onMessage('yourHoleCards', function (message) {
         myHoleCards = message.cards;
         paintMyCards();
+      });
+
+      room.onMessage('rouletteShot', function (message) {
+        rouletteFlash = message.hit ? '💥 BANG!' : 'カチッ… セーフ';
+        renderRoulette();
+        setTimeout(function () { rouletteFlash = ''; if (room) renderRoulette(); }, 1500);
       });
 
       room.onMessage('exchangeError', function (message) {

@@ -12,7 +12,20 @@ export type GamePhase =
   | "roundEnd" // ラウンド結果表示中(次ラウンドへの短い間)
   | "gameEnd"; // 全ラウンド終了、最終結果表示
 
+/** ロビーで遊べるミニゲーム「ロシアンルーレット」の状態 */
+export class RouletteState extends Schema {
+  @type("string") phase: "idle" | "recruiting" | "playing" | "result" = "idle";
+  @type("number") bet: number = 0; // 掛け金(次のゲームの初期チップから)
+  @type(["string"]) participants = new ArraySchema<string>();
+  @type("string") turnPlayerId: string = "";
+  @type("number") pulls: number = 0; // これまでに引き金を引いた回数(0〜6)
+  @type("string") loserId: string = "";
+  @type("number") payoutEach: number = 0; // 生存者1人あたりの獲得額
+  @type("number") turnLeft: number = 0; // 手番の残り秒数
+}
+
 export class RoomState extends Schema {
+  @type(RouletteState) roulette = new RouletteState();
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
 
   // 座席順(固定)。BTN回転やアクション順の基準にする。
