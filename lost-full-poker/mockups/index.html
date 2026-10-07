@@ -176,6 +176,12 @@
   .raise-modal h3 { margin:0 0 16px; color:#e0a752; font-size:15px; }
   .raise-modal label { font-size:12px; color:#999; display:block; margin-bottom:6px; }
   .raise-modal input { width:100%; box-sizing:border-box; background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px 10px; border-radius:4px; font-size:16px; }
+  .raise-mults { display:flex; gap:6px; margin-top:10px; }
+  .raise-mults button { flex:1; padding:7px 0; border-radius:5px; cursor:pointer; background:#1a1a1a; border:1px solid #e0a752; color:#e0a752; font-size:13px; }
+  .raise-mults button:hover { background:#2a2208; }
+  .raise-presets { display:flex; gap:6px; margin-top:10px; }
+  .raise-presets button { flex:1; padding:7px 0; border-radius:5px; border:1px solid #e0a752; background:#2a2208; color:#ffd24d; cursor:pointer; font-size:13px; font-weight:bold; }
+  .raise-presets button.allin { border-color:#ff4d4d; background:#3a0d0d; color:#ff8080; flex:1.6; }
   .raise-modal .range-note { font-size:11px; color:#777; margin-top:6px; }
   .raise-modal-actions { display:flex; gap:8px; margin-top:18px; }
   .raise-modal-actions button { flex:1; padding:10px; border-radius:6px; cursor:pointer; background:#1a1a1a; border:1px solid #666; color:#eee; }
@@ -429,7 +435,14 @@
         <h3>レイズ</h3>
         <label>レイズする量</label>
         <input type="number" id="raiseAmount" value="40" step="10" oninput="updateRaiseConfirmLabel()">
-        <div class="range-note">最大 <span id="raiseMax">80</span></div>
+        <div class="raise-mults" id="raiseMults"></div>
+        <div class="raise-presets">
+          <button onclick="setRaisePreset(2)">×2</button>
+          <button onclick="setRaisePreset(3)">×3</button>
+          <button onclick="setRaisePreset(4)">×4</button>
+          <button class="allin" onclick="setRaisePreset('allin')">オールイン</button>
+        </div>
+        <div class="range-note">最大 <span id="raiseMax">80</span>(×は現在のベット額の倍数。ベットが無いときはBBの倍数)</div>
         <div class="raise-modal-actions">
           <button onclick="closeRaise()">キャンセル</button>
           <button class="confirm" id="raiseConfirmBtn" onclick="confirmRaise()">確定</button>
@@ -1334,6 +1347,49 @@
       input.value = Math.min(Math.max(minRaiseTo, currentBet + state.minRaiseUnit), maxRaiseTo);
       document.getElementById('raiseMax').textContent = maxRaiseTo;
       document.getElementById('raiseOverlay').classList.add('open');
+      buildRaiseMults(currentBet, minRaiseTo, maxRaiseTo);
+      updateRaiseConfirmLabel();
+    }
+
+    /** 現在のベット額の定数倍(ベットが無ければBBの倍数)をワンタップで入力するボタン群 */
+    function buildRaiseMults(currentBet, minTo, maxTo) {
+      const box = document.getElementById('raiseMults');
+      box.innerHTML = '';
+      const base = currentBet > 0 ? currentBet : room.state.bigBlind;
+      const step = room.state.minRaiseUnit || 1;
+      [2, 3, 5, 10].forEach(function (n) {
+        const b = document.createElement('button');
+        b.textContent = '×' + n;
+        b.onclick = function () {
+          let v = Math.round(base * n / step) * step;
+          v = Math.min(Math.max(v, minTo), maxTo);
+          document.getElementById('raiseAmount').value = v;
+          updateRaiseConfirmLabel();
+        };
+        box.appendChild(b);
+      });
+      const mx = document.createElement('button');
+      mx.textContent = 'MAX';
+      mx.onclick = function () {
+        document.getElementById('raiseAmount').value = maxTo;
+        updateRaiseConfirmLabel();
+      };
+      box.appendChild(mx);
+    }
+    function setRaisePreset(kind) {
+      const state = room.state;
+      const me = state.players.get(room.sessionId);
+      const input = document.getElementById('raiseAmount');
+      const allInTo = me.currentBet + me.chips;
+      let target;
+      if (kind === 'allin') {
+        target = allInTo;
+      } else {
+        const base = state.currentBet > 0 ? state.currentBet : state.bigBlind;
+        target = base * kind;
+      }
+      const minV = Number(input.min), maxV = Number(input.max);
+      input.value = Math.min(Math.max(target, minV), maxV);
       updateRaiseConfirmLabel();
     }
     function isRaiseAllIn(amount) {
