@@ -579,16 +579,50 @@
 
     let reconnectToken = null;
     let reconnecting = false;
+
+    function saveSession() {
+      try { if (room && room.reconnectionToken) { reconnectToken = room.reconnectionToken; sessionStorage.setItem('lfhToken', reconnectToken); } } catch (e) {}
+    }
+    function clearSession() {
+      reconnectToken = null;
+      try { sessionStorage.removeItem('lfhToken'); } catch (e) {}
+    }
+
+    // ブロッキングのalertは使わず、画面上部に出る通知で知らせる(ブラウザの操作を邪魔しない)
+    function notify(message, ms) {
+      let n = document.getElementById('lfhNotice');
+      if (!n) {
+        n = document.createElement('div');
+        n.id = 'lfhNotice';
+        n.style.cssText = 'position:fixed;top:44px;left:50%;transform:translateX(-50%);z-index:10000;background:#2a0808;border:1px solid #b91c1c;color:#f5b5b5;padding:10px 18px;border-radius:8px;font-size:13px;max-width:90vw;text-align:center;';
+        document.body.appendChild(n);
+      }
+      n.textContent = message;
+      n.style.display = 'block';
+      clearTimeout(n._t);
+      if (ms) n._t = setTimeout(function () { n.style.display = 'none'; }, ms);
+    }
+
+    // いつでも押せる「再読み込み」ボタン(最前面固定)。再読み込み後は自動で元のルームに復帰を試みる
+    (function () {
+      const b = document.createElement('button');
+      b.textContent = '⟳ 再読み込み';
+      b.style.cssText = 'position:fixed;top:8px;left:8px;z-index:10001;padding:5px 10px;font-size:12px;background:#222;color:#ddd;border:1px solid #666;border-radius:6px;cursor:pointer;opacity:.85;';
+      b.onclick = function () { location.reload(); };
+      document.body.appendChild(b);
+    })();
+
     async function tryReconnect() {
       if (reconnecting) return;
       reconnecting = true;
-      showToast('接続が切れました。再接続中…');
+      notify('接続が切れました。再接続中…');
       for (let i = 0; i < 20 && !navigatedAway; i++) {
         try {
           room = await getClient().reconnect(reconnectToken);
           reconnecting = false;
           wireRoomEvents();
-          showToast('再接続しました');
+          saveSession();
+          notify('再接続しました', 2000);
           return;
         } catch (e) {
           console.warn('reconnect failed', i, e);
@@ -596,8 +630,32 @@
         }
       }
       reconnecting = false;
-      alert('サーバーとの接続が切れました。タイトルに戻ります。');
-      location.reload();
+      clearSession();
+      notify('サーバーとの接続が切れました。タイトルに戻ります。', 4000);
+      setTimeout(function () { location.reload(); }, 1500);
+    }
+
+    // ページ読み込み直後、前回のセッションが残っていれば自動で復帰を試みる
+    async function restoreSession() {
+      let token = null;
+      try { token = sessionStorage.getItem('lfhToken'); } catch (e) {}
+      if (!token) return;
+      reconnectToken = token;
+      notify('前回のルームに復帰中…');
+      for (let i = 0; i < 8; i++) {
+        try {
+          room = await getClient().reconnect(token);
+          navigatedAway = false;
+          wireRoomEvents();
+          saveSession();
+          notify('ルームに復帰しました', 2000);
+          return;
+        } catch (e) {
+          await new Promise(function (r) { setTimeout(r, 2000); });
+        }
+      }
+      clearSession();
+      notify('前回のルームには戻れませんでした', 3000);
     }
 
     function wireRoomEvents() {
@@ -622,9 +680,16 @@
         }
       });
 
+      saveSession();
       room.onLeave(function () {
         if (navigatedAway) return;
-        tryReconnect(room.reconnectionToken, 0);
+        tryReconnect();
+      });
+      room.onMessage('kicked', function () {
+        navigatedAway = true;
+        clearSession();
+        notify('GMによってルームからキックされました。', 3000);
+        setTimeout(function () { location.reload(); }, 1500);
       });
 
       wireTableMessages();
@@ -639,22 +704,6 @@
       document.getElementById('roomIdText').textContent = room.state.roomCode || '----';
       renderLobbyPlayers();
       updateStatusLine();
-    }
-
-    async function tryReconnect(token, attempt) {
-      if (!token || attempt >= 8) {
-        alert('サーバーとの接続が切れました。タイトルに戻ります。');
-        location.reload();
-        return;
-      }
-      showToast && (function(){ try { showToast('再接続中…(' + (attempt + 1) + ')'); } catch (e) {} })();
-      try {
-        room = await getClient().reconnect(token);
-        wireRoomEvents();
-        if (room.state.gameStarted) { renderTable(); showScreen('screen-table'); }
-      } catch (e) {
-        setTimeout(function () { tryReconnect(token, attempt + 1); }, 3000);
-      }
     }
 
     function renderResults() {
@@ -764,6 +813,7 @@
 
     function leaveRoom() {
       navigatedAway = true;
+      clearSession();
       if (room) room.send('leaveIntentional');
       if (room) room.leave(true);
       room = null;
@@ -1489,6 +1539,7 @@
     // ページ読み込み時、必ずタイトル画面から始める(これが無いとCSSの兼ね合いで
     // 別の画面が意図せず表示されてしまうため)
     showScreen('screen-title');
+    restoreSession();
   </script>
 </body>
 </html>
