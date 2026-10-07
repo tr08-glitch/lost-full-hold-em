@@ -74,8 +74,8 @@
   /* ---------- 対戦卓画面 ---------- */
   .screen-table { position:relative; width:100%; height:100vh; box-sizing:border-box; overflow:hidden; background:radial-gradient(ellipse at 50% 46%, #14100c 0%, #060504 80%); }
   .screen-table::before { content:''; position:absolute; left:50%; top:46%; width:min(96vw, calc(86vh * 1.667)); aspect-ratio:1619/971; transform:translate(-50%,-50%); background:url('assets/table.webp') center/100% 100% no-repeat; pointer-events:none; -webkit-mask-image:radial-gradient(ellipse 51% 52% at 50% 50%, #000 90%, transparent 100%); mask-image:radial-gradient(ellipse 51% 52% at 50% 50%, #000 90%, transparent 100%); }
-  .round-box { position:absolute; top:16px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:13px; }
-  .turn-timer { position:absolute; top:112px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:12px; color:#bbb; min-width:84px; text-align:center; z-index:4; }
+  .round-box { position:absolute; top:46px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:13px; }
+  .turn-timer { position:absolute; top:122px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:12px; color:#bbb; min-width:84px; text-align:center; z-index:4; }
   .turn-timer .tt-sec { font-size:30px; font-weight:bold; color:#4ade80; line-height:1.1; }
   .turn-timer.mine { border-color:#e0b040; }
   .turn-timer.warn { border-color:#ff4d4d; }
@@ -96,6 +96,9 @@
   .opponent { pointer-events:auto; position:absolute; width:168px; background:#141414; border:1px solid #333; border-radius:6px; padding:8px 10px; text-align:center; }
   .opponent .name { font-size:12px; color:#999; margin-bottom:6px; }
   .opponent .cards { height:44px; display:flex; align-items:center; justify-content:center; gap:4px; margin-bottom:8px; }
+  .lostin-tag { color:#fff; background:#7f1111; border:1px solid #ff4d4d; border-radius:4px; padding:2px 4px; margin:0 0 4px; font-size:11px; white-space:nowrap; font-weight:bold; animation:dcblink 1s steps(2) infinite; }
+  .self-panel .lostin-tag { margin:4px 0; }
+  .opponent.lostin-declarer { border-color:#ff4d4d; box-shadow:0 0 14px #ff2a2a88; }
   .dc-warn { color:#ff3b3b; font-weight:bold; font-size:12px; margin:-2px 0 4px; animation:dcblink 1s steps(2) infinite; }
   @keyframes dcblink { 50% { opacity:.55; } }
   .opponent .stat-line { font-size:11px; background:#1a1a1a; border:1px solid #333; border-radius:4px; padding:3px 6px; margin-top:4px; }
@@ -160,7 +163,7 @@
   .top-right-actions button { background:#1a1a1a; border:1px solid #666; color:#ccc; padding:8px 14px; border-radius:6px; cursor:pointer; font-size:12px; }
   .top-right-actions button.surrender { border-color:#b91c1c; color:#e05252; }
 
-  .chat-flow { position:absolute; top:70px; left:16px; width:136px; max-height:200px; overflow:hidden; font-size:11px; z-index:4; pointer-events:none; }
+  .chat-flow { position:absolute; top:212px; left:16px; width:150px; max-height:150px; overflow:hidden; font-size:11px; z-index:4; pointer-events:none; }
   .chat-flow .chat-line { background:#00000099; padding:2px 6px; border-radius:3px; margin-bottom:3px; word-break:break-word; }
   .chat-flow .chat-line.public { color:#eee; }
   .chat-flow .chat-line.private { color:#6f9fff; }
@@ -175,7 +178,10 @@
   .chat-history-input-row select { width:80px; flex-shrink:0; }
   .chat-history-input-row input { flex:1; }
   .chat-history-input-row button { flex-shrink:0; padding:6px 10px; font-size:12px; }
-  .hand-area { position:absolute; bottom:120px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:flex-end; }
+  .hand-area { position:absolute; bottom:120px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:flex-end; transition:transform .7s ease-in, opacity .7s ease-in; }
+  /* 破産・死亡・廃人・降参のあとは、カードを持つ手を卓の下へ引っ込める */
+  body.self-out .hand-area { transform:translateX(-50%) translateY(190px); opacity:0; pointer-events:none; }
+  body.self-out .hand-label { opacity:0; }
   .hand-card, .community-card, .opponent-mini-card {
     background:#fbfbf8;
     border: 1px solid #666; border-radius:6px; box-shadow:0 2px 4px #00000088; position:relative; overflow:hidden;
@@ -433,6 +439,7 @@
         <label>ジョーカーの枚数</label>
         <input type="number" id="jokerCount" value="2" min="1" max="4" disabled>
       </div>
+      <div class="toggle-row"><span>山札の使い回し(毎ラウンド全カードを戻す)</span><input type="checkbox" id="deckReuseToggle" autocomplete="off"></div>
       <div class="toggle-row"><span>観戦者への手札の公開</span><input type="checkbox" id="spectatorHandsToggle" autocomplete="off"></div>
       <div class="toggle-row"><span>他プレイヤーの赤札推定額を表示</span><input type="checkbox" checked></div>
       <div class="toggle-row"><span>他プレイヤーのチップ額を表示</span><input type="checkbox" checked></div>
@@ -515,6 +522,7 @@
     <div class="self-panel"><img class="dead-emblem" id="selfDeadEmblem" src="assets/dead-emblem.webp" alt="" style="display:none;">
       <div class="position-badge" id="selfPositionBadge" style="display:none;">BTN</div>
       <div class="name" id="selfName">プレイヤー1(自分)</div>
+      <div class="lostin-tag" id="selfLostIn" style="display:none;"></div>
       <div class="row">
         <div class="body-icon" title="換金画面へ" onclick="openExchange()">🩸</div>
         <div class="red-note" id="selfRedNote">赤札(推定): 0</div>
@@ -847,14 +855,13 @@
       const st = room.state;
       const ps = [];
       st.players.forEach(function (p) { if (!p.isSpectator) ps.push(p); });
-      // 順位ルール:
-      //  ・ラウンド切れ … 死亡/廃人のスコアはチップ×0.7
-      //  ・それ以外(生存者1人以下)… 死亡/廃人は全員敗北(それ以外の人より下)
+      // 順位ルール(強制敗北なし。スコアで順位を決める):
+      //  ・死亡/廃人 … チップ×0.7 / 生存者(ロストフル) … チップ + 残存部位の全額換算
       // 降参者は常に最下位。複数人いる場合は、先に降参した人ほど下(後に降参した人ほど上)
       const byRounds = st.endReason === 'rounds';
       const isOut = function (p) { return p.isDead || p.isVegetative; };
-      const scoreOf = function (p) { return byRounds && isOut(p) ? p.chips * 0.7 : p.chips; };
-      const grp = function (p) { return p.isSurrendered ? 2 : (!byRounds && isOut(p)) ? 1 : 0; };
+      const scoreOf = function (p) { return p.finalScore; };
+      const grp = function (p) { return p.isSurrendered ? 1 : 0; };
       ps.sort(function (a, b) {
         if (grp(a) !== grp(b)) return grp(a) - grp(b);
         if (a.isSurrendered) return b.surrenderOrder - a.surrenderOrder;
@@ -871,13 +878,13 @@
         prev = p.isSurrendered ? null : sc;
         prevGrp = grp(p);
         const status = p.isDead ? '死亡' : p.isVegetative ? '廃人' : p.isSurrendered ? '降参' : p.isBusted ? 'チップ切れ' : '';
-        const lose = !byRounds && isOut(p);
+        const note = isOut(p) ? p.chips + ' × 0.7' : (p.partsBonus > 0 ? 'チップ ' + p.chips + ' + 部位 ' + p.partsBonus : '');
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:8px;background:#141414;border:1px solid ' + (rank === 1 ? '#e0b040' : '#333') + ';';
-        row.innerHTML = '<div style="font-size:' + (rank === 1 ? 30 : 22) + 'px;width:56px;text-align:center;">' + (lose ? '敗北' : (medals[rank - 1] || (rank + '位'))) + '</div>' +
+        row.innerHTML = '<div style="font-size:' + (rank === 1 ? 30 : 22) + 'px;width:56px;text-align:center;">' + (medals[rank - 1] || (rank + '位')) + '</div>' +
           '<div style="flex:1;"><div style="font-size:16px;font-weight:bold;"></div><div style="font-size:11px;color:#c66;"></div></div>' +
-          '<div style="text-align:right;"><div style="font-size:18px;color:#e0d060;">' + (byRounds && isOut(p) ? fmt(sc) : p.chips) + '</div>' +
-          (byRounds && isOut(p) ? '<div style="font-size:10px;color:#999;">' + p.chips + ' × 0.7</div>' : '') + '</div>';
+          '<div style="text-align:right;"><div style="font-size:18px;color:#e0d060;">' + fmt(sc) + '</div>' +
+          (note ? '<div style="font-size:10px;color:#999;">' + note + '</div>' : '') + '</div>';
         row.querySelector('div[style*="font-weight"]').textContent = p.name + (p.id === room.sessionId ? '(自分)' : '');
         row.querySelectorAll('div')[3].textContent = status;
         list.appendChild(row);
@@ -944,6 +951,7 @@
       document.getElementById('jokerCount').value = state.jokerCount;
       document.getElementById('jokerCount').disabled = !state.jokerEnabled;
       document.getElementById('spectatorHandsToggle').checked = !!state.spectatorSeeHands;
+      document.getElementById('deckReuseToggle').checked = !!state.deckReuse;
       document.getElementById('settingsModal').style.display = 'flex';
     }
     function closeSettings() {
@@ -959,6 +967,7 @@
         jokerEnabled: document.getElementById('jokerToggle').checked,
         jokerCount: Number(document.getElementById('jokerCount').value),
         spectatorSeeHands: document.getElementById('spectatorHandsToggle').checked,
+        deckReuse: document.getElementById('deckReuseToggle').checked,
       });
       closeSettings();
     }
@@ -1307,9 +1316,10 @@
       call_not_allowed: '今はコールできません',
       invalid_raise_amount: 'レイズ額が正しくありません',
       no_chips: 'チップが残っていません',
+      cannot_call_lostin: 'チップが赤札額に足りないため、コールできません(対抗ロストインかフォールドのみ)',
       unknown_action_type: '不明な操作です',
       arm_restricted: '腕を失っているため、チェック/コール以外は選択できません',
-      lostin_response_required: 'ロストインへの応答(コール/対抗ロストイン/フォールド)が必要です'
+      lostin_response_required: 'ロストインへの応答(同額コール/対抗ロストイン/フォールド)が必要です'
     };
     let toastTimer = null;
     function showToast(message) {
@@ -1438,13 +1448,14 @@
         needExchangePrompted = false;
         return;
       }
+      const minChips = Math.max(1, Math.floor(state.startingChips / 10));
       const ids = Array.from(state.needExchange);
       const mine = ids.indexOf(room.sessionId) !== -1;
       const names = ids.map(function (id) { const p = state.players.get(id); return p ? escapeHtml(p.name) : ''; }).join('、');
       box.style.display = 'block';
       box.innerHTML = mine
-        ? '💀 チップが0になりました。部位を換金してゲームを続けましょう<br><span style="font-size:22px;color:#ffd24d;">' + state.timeLeft + '</span> 秒(時間切れで脱落)'
-        : names + ' のチップが0になりました。換金が終わるまで待機中…(' + state.timeLeft + '秒)';
+        ? '💀 チップが ' + minChips + '(初期チップの1/10)未満です。' + minChips + ' 以上になるまで部位を換金してください<br><span style="font-size:22px;color:#ffd24d;">' + state.timeLeft + '</span> 秒(時間切れでチップ0なら脱落)'
+        : names + ' のチップが ' + minChips + ' 未満。換金が終わるまで待機中…(' + state.timeLeft + '秒)';
       // 自分が対象なら、換金画面を自動で開く
       if (mine && !needExchangePrompted) {
         needExchangePrompted = true;
@@ -1585,10 +1596,12 @@
           });
         }
         const div = document.createElement('div');
-        div.className = 'opponent seat-' + (seatList[oi] || 'T');
+        const isLI = !!(state.lostInActive && state.lostInDeclarerId === p.id);
+        div.className = 'opponent seat-' + (seatList[oi] || 'T') + (isLI ? ' lostin-declarer' : '');
         div.innerHTML =
           (p.positionLabel ? '<div class="position-badge">' + p.positionLabel + '</div>' : '') +
           '<div class="name">' + escapeHtml(p.name) + statusNote + '</div>' +
+          (isLI ? '<div class="lostin-tag">ロストイン 赤札 ' + state.lostInAmount + '</div>' : '') +
           (!p.connected ? '<div class="dc-warn">切断中 残り ' + (p.disconnectLeft || 0) + ' 秒</div>' : '') +
           '<div class="cards">' + cardsHtml + '</div>' +
           (tableCardsHtml ? '<div class="table-cards">' + tableCardsHtml + '</div>' : '') +
@@ -1695,8 +1708,8 @@
     // 身体喪失の視覚デバフ(目:数字/マークが見えない、肺:赤いもや)
     function applyBodyEffects(state, me) {
       const lf = state.mode === 'lostfull';
-      const eyes = lf ? (me.eyesLostLeft ? 1 : 0) + (me.eyesLostRight ? 1 : 0) : 0;
-      const lungs = lf ? (me.lungsLostLeft ? 1 : 0) + (me.lungsLostRight ? 1 : 0) : 0;
+      const eyes = lf && !me.isDead ? (me.eyesLostLeft ? 1 : 0) + (me.eyesLostRight ? 1 : 0) : 0;
+      const lungs = lf && !me.isDead ? (me.lungsLostLeft ? 1 : 0) + (me.lungsLostRight ? 1 : 0) : 0;
       document.body.classList.toggle('eye-one', eyes === 1);
       document.body.classList.toggle('eye-both', eyes === 2);
       document.body.classList.toggle('lung-one', lungs === 1 && !me.isDead);
@@ -1735,12 +1748,14 @@
         if (me.armsLostLeft || me.armsLostRight) deb.push('<b>' + (me.armsLostLeft && me.armsLostRight ? '両腕' : me.armsLostLeft ? '左腕' : '右腕') + 'を喪失</b>:チェック/コール(コール扱いのオールイン含む)しかできない');
         if (me.heartLost) deb.push('<b>心臓を喪失</b>:死亡');
         if (me.stress >= 100) deb.push('<b>ストレス限界</b>:廃人');
+        if (me.isDead) deb.length = 0; // 死亡後はデバフなし
         h += deb.length ? deb.map(function (d) { return '<div class="sp-deb">' + d + '</div>'; }).join('') : '<div style="color:#777;">デバフなし</div>';
       }
       body.innerHTML = h;
     }
 
     function renderSelfPanel(state, me) {
+      document.body.classList.toggle('self-out', !!(me.isBusted || me.isDead || me.isVegetative || me.isSurrendered));
       document.getElementById('selfName').textContent = me.name + '(自分)' + (me.isSurrendered ? ' 観戦中' : '');
       document.querySelector('.top-right-actions .surrender').style.display = me.isSurrendered ? 'none' : '';
       // 指を4本以上失った側のカードは、手に持てないので卓の上に置く
@@ -1827,11 +1842,11 @@
     }
 
     const LOG_ACTION_COLORS = {
-      'チェック': '#4ade80', 'コール': '#5ab4ff', 'レイズ': '#ffd24d',
+      'チェック': '#4ade80', 'コール': '#5ab4ff', 'レイズ': '#ffd24d', 'ベット': '#ffd24d',
       'フォールド': '#a0a0a0', 'オールイン': '#ff8a3d', 'ロストイン': '#ff4d6d'
     };
     function colorizeLog(text) {
-      return escapeHtml(text).replace(/ロストイン|オールイン|チェック|コール|レイズ|フォールド/g, function (w) {
+      return escapeHtml(text).replace(/ロストイン|オールイン|チェック|コール|レイズ|ベット|フォールド/g, function (w) {
         return '<span style="color:' + LOG_ACTION_COLORS[w] + ';font-weight:bold;">' + w + '</span>';
       });
     }
@@ -1858,9 +1873,11 @@
 
       if (state.lostInActive) {
         document.getElementById('btnCheck').disabled = true;
-        document.getElementById('btnRaise').textContent = 'オールイン';
-        document.getElementById('btnRaise').disabled = !canAct || me.chips <= 0 || armRestricted;
-        document.getElementById('btnCall').disabled = !canAct;
+        // ロストインへの返しは「同額のコール」か「対抗ロストイン」のみ(オールイン・レイズは不可)
+        document.getElementById('btnRaise').textContent = 'オールイン不可';
+        document.getElementById('btnRaise').disabled = true;
+        document.getElementById('btnCall').textContent = 'コール ' + state.lostInAmount;
+        document.getElementById('btnCall').disabled = !canAct || me.chips < state.lostInAmount;
         document.getElementById('btnFold').disabled = !canAct || armRestricted;
         document.getElementById('btnLostin').disabled = !canAct;
       } else {
@@ -1870,7 +1887,8 @@
         const toCallNow = state.currentBet - me.currentBet;
         const callLabel = (raisePending && toCallNow >= me.chips) ? 'オールイン' : 'コール';
         document.getElementById('btnCall').textContent = callLabel;
-        document.getElementById('btnRaise').textContent = 'レイズ';
+        document.getElementById('btnRaise').textContent = state.currentBet > 0 ? 'レイズ' : 'ベット'; // まだ誰もベットしていない時だけ「ベット」
+        const rt = document.querySelector('#raiseOverlay h3'), rl = document.querySelector('#raiseOverlay label'); if (rt) rt.textContent = state.currentBet > 0 ? 'レイズ' : 'ベット'; if (rl) rl.textContent = state.currentBet > 0 ? 'レイズする量' : 'ベットする量';
         document.getElementById('btnRaise').disabled = !canAct || me.chips <= 0 || armRestricted;
         document.getElementById('btnFold').disabled = !canAct || armRestricted;
         document.getElementById('btnLostin').disabled = !canAct;
@@ -1879,11 +1897,13 @@
 
     function renderLostInBanner(state) {
       const banner = document.getElementById('lostInBanner');
-      if (!state.lostInActive) { banner.style.display = 'none'; return; }
-      const declarer = state.players.get(state.lostInDeclarerId);
-      const name = declarer ? declarer.name : '???';
-      banner.innerHTML = 'ロストイン進行中<br>' + name + ' 赤札: ' + state.lostInAmount;
-      banner.style.display = '';
+      banner.style.display = 'none'; // 表示は宣言した人のステータス欄(相手枠/自分の枠)に移した
+      const st = document.getElementById('selfLostIn');
+      if (st) {
+        const mine = state.lostInActive && state.lostInDeclarerId === room.sessionId;
+        st.style.display = mine ? '' : 'none';
+        if (mine) st.textContent = 'ロストイン宣言中 赤札 ' + state.lostInAmount;
+      }
     }
 
     // ---------- アクション送信 ----------
@@ -1898,7 +1918,7 @@
 
     function openRaise() {
       if (document.getElementById('btnRaise').disabled) return;
-      if (room.state.lostInActive) { confirmAction('allin'); return; } // ロストインへの応答としてのオールイン
+      if (room.state.lostInActive) return; // ロストインにはオールインで返せない
       const state = room.state;
       const me = state.players.get(room.sessionId);
       const currentBet = state.currentBet;

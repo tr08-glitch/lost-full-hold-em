@@ -65,6 +65,8 @@ export class RoomState extends Schema {
   // ジョーカー設定(GMがゲーム設定モーダルで変更可能)
   @type("boolean") jokerEnabled: boolean = false;
   @type("number") jokerCount: number = 2;
+  // 山札の使い回し(GM設定、デフォルトoff)。on=毎ラウンド全カードを山札に戻す / off=使ったカードは山札に戻らず、足りなくなったら全て戻してシャッフル
+  @type("boolean") deckReuse: boolean = false;
   // 観戦者にプレイヤーの手札を公開するか(GM設定、デフォルト非公開)
   @type("boolean") spectatorSeeHands: boolean = false;
 

@@ -68,5 +68,8 @@ export class PlayerState extends Schema {
   @type("number") chipDelta: number = 0;
   // ゲーム開始後に入室した観戦者(座席なし・手番なし)。次のゲーム/ロビー復帰時に通常プレイヤーへ昇格する
   @type("boolean") isSpectator: boolean = false;
+  // 結果発表用(endGameで確定): 最終スコアと、生存者に加算された残存部位の換算額
+  @type("number") finalScore: number = 0;
+  @type("number") partsBonus: number = 0;
   @type("number") surrenderOrder: number = 0; // 降参した順(1始まり、未降参は0)。結果発表で降参者を最下位に並べる用
 }
