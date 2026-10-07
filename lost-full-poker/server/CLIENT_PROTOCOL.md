@@ -252,7 +252,7 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 - state: `ij { phase: idle|recruiting|playing|result, bet, participants[], step: pick|reveal, fieldNum, pickedIds[], winners[], winnerGain, turnLeft }`
 - client→server: `ijOpen {bet}`(GM。1〜BB)/ `ijSetBet {bet}`(GM、募集中のみ)/ `ijJoin`(参加・辞退のトグル)/ `ijBegin`(GM、2人以上)/ `ijPick {pick:"high"|"low"}`(25秒以内に何度でも変更可)/ `ijInfoReq`(自分の公開情報の再送要求)/ `ijClose`(GM。中止・結果画面を閉じる)
 - server→client: `ijInfo {field, seen:[{who:playerId|"grave", num}], total}`(本人にだけ)/ `ijReveal {field, nums{id:number}, picks{id:high|low}, grave[], winners[]}`
-- ルール: 数字カードは1〜(人数+3)。場1枚・各プレイヤー1枚(自分のは見えない)・墓地2枚。各プレイヤーには「他プレイヤー+墓地」のうち半数(切り捨て)がランダムに公開される。自分の数字が場より大きいか小さいかを予想し、的中者全員で掛け金を山分け(全員外れなら増減なし)。掛け金は次のゲームの初期チップから(`chipDelta`)。
+- ルール: 数字カードは1〜(人数+2)。場1枚・各プレイヤー1枚(自分のは見えない)・墓地1枚。各プレイヤーには「他プレイヤー+墓地」のうち半数(切り捨て)がランダムに公開される。自分の数字が場より大きいか小さいかを予想し、的中者全員で掛け金を山分け(全員外れなら増減なし)。掛け金は次のゲームの初期チップから(`chipDelta`)。
 
 ## 観戦者
 - ゲーム開始後に入室した人は `players[id].isSpectator = true`(座席なし・手番なし・チップ0)。ニューゲーム/ロビー復帰時に空き席があれば通常プレイヤーに昇格。

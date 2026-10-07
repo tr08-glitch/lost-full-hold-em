@@ -412,7 +412,7 @@ export class PokerRoom extends Room<RoomState> {
 
   // ---------- ミニゲーム:インディアンジャッジ(ロビー専用) ----------
   // 掛け金は「次のゲームの初期チップ」から支払う。
-  // 数字カードは 1〜(人数+3)。場に1枚、各プレイヤーに1枚(自分のは見えない)、残り2枚は墓地(使われない)。
+  // 数字カードは 1〜(人数+2)。場に1枚、各プレイヤーに1枚(自分のは見えない)、残り1枚は墓地(使われない)。
   // 各プレイヤーには「他プレイヤーの手札+墓地」のうち半数(切り捨て)がランダムに公開される。
   // それを踏まえて自分のカードが場より大きいか小さいかを予想し、的中者全員で全員の掛け金を山分け。
   private ijPicks = new Map<string, "high" | "low">();
@@ -516,8 +516,8 @@ export class PokerRoom extends Room<RoomState> {
     r.winners.clear();
     r.pickedIds.clear();
     const n = order.length;
-    // 1〜(n+3) をシャッフル:先頭=場、次のn枚=各プレイヤー、残り2枚=墓地
-    const deck = Array.from({ length: n + 3 }, (_, i) => i + 1);
+    // 1〜(n+2) をシャッフル:先頭=場、次のn枚=各プレイヤー、残り1枚=墓地
+    const deck = Array.from({ length: n + 2 }, (_, i) => i + 1);
     for (let i = deck.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [deck[i], deck[j]] = [deck[j]!, deck[i]!];
@@ -551,7 +551,7 @@ export class PokerRoom extends Room<RoomState> {
     if (r.phase !== "playing") return;
     const seen = this.ijSeen.get(client.sessionId);
     if (!seen) return;
-    client.send("ijInfo", { field: r.fieldNum, seen, total: r.participants.length + 3 });
+    client.send("ijInfo", { field: r.fieldNum, seen, total: r.participants.length + 2 });
   }
 
   private ijStartPick() {

@@ -272,9 +272,9 @@
         <input type="text" id="playerNameInput" placeholder="名前(未入力なら自動)" maxlength="10">
       </div>
       <div class="menu">
-        <button onclick="startAsGM(this)">AI戦</button>
         <button onclick="startAsGM(this)">ルーム作成</button>
         <button onclick="goToJoinScreen()">ルーム参加</button>
+        <button onclick="openRules()">ルール説明</button>
       </div>
     </div>
     <div class="credit">Credit</div>
@@ -342,7 +342,7 @@
       </div>
       <div class="chat-box" id="ijPanel" style="display:none;overflow-y:auto;border-color:#b91c1c;">
         <label style="color:#e05252;letter-spacing:2px;">🃏 インディアンジャッジ</label>
-        <div id="ijDesc" style="font-size:11px;color:#999;margin:4px 0 10px;">次のゲームの初期チップを少し賭けるミニゲーム。数字カードは 1〜(人数+3):場に1枚、各自1枚(自分のは見えない)、墓地2枚。他の人の手札と墓地のうち半数(切り捨て)があなたにだけ見えます。それを手がかりに、自分の数字が場より大きいか小さいかを予想。的中した人全員で掛け金を山分けします。</div>
+        <div id="ijDesc" style="font-size:11px;color:#999;margin:4px 0 10px;">次のゲームの初期チップを少し賭けるミニゲーム。数字カードは 1〜(人数+2):場に1枚、各自1枚(自分のは見えない)、墓地1枚。他の人の手札と墓地のうち半数(切り捨て)があなたにだけ見えます。それを手がかりに、自分の数字が場より大きいか小さいかを予想。的中した人全員で掛け金を山分けします。</div>
         <div id="ijBody"></div>
       </div>
     </div>
@@ -952,12 +952,14 @@
       return '<button ' + (opts.disabled ? 'disabled ' : '') + 'onclick="' + onclick + '" style="padding:10px 16px;border-radius:8px;border:1px solid ' + (opts.color || '#b91c1c') +
         ';background:' + (opts.bg || '#2a0c0c') + ';color:#fff;cursor:pointer;font-size:14px;margin:4px 4px 0 0;' + (opts.disabled ? 'opacity:.4;' : '') + '">' + label + '</button>';
     }
+    function ijCode(n) { return (n === 1 ? 'A' : String(n)) + 's'; } // 1=A,2〜9(スペード)
     function ijCardHtml(num, kind, small) {
-      const w = small ? 40 : 54, hgt = small ? 58 : 78;
-      const bd = kind === 'gold' ? '#ffd24d' : kind === 'dim' ? '#555' : '#b91c1c';
-      const base = 'width:' + w + 'px;height:' + hgt + 'px;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-top:3px;box-shadow:0 2px 4px #000;';
-      if (num === null || num === undefined || num === 0) return '<div style="' + base + 'background:url(assets/cards/BACK.webp) center/cover;"></div>';
-      return '<div style="' + base + 'background:#14100e;border:2px solid ' + bd + ';color:' + (kind === 'gold' ? '#ffd24d' : '#eee') + ';font-size:' + (small ? 22 : 30) + 'px;font-weight:bold;font-family:serif;">' + num + '</div>';
+      const w = small ? 34 : 44, hgt = Math.round(w * 390 / 190);
+      const ring = kind === 'gold' ? 'outline:2px solid #ffd24d;outline-offset:2px;' : '';
+      const dim = kind === 'dim' ? 'filter:grayscale(.7) brightness(.8);' : '';
+      const box = 'width:' + w + 'px;height:' + hgt + 'px;border-radius:5px;display:inline-block;margin-top:3px;' + ring + dim;
+      if (num === null || num === undefined || num === 0) return '<div style="' + box + 'background:url(assets/cards/BACK.webp) center/cover;box-shadow:0 2px 4px #000;"></div>';
+      return '<div style="' + box + '">' + cardImgHtml(ijCode(num)) + '</div>';
     }
     function renderIJ() {
       if (!room || !room.state || !room.state.ij) return;
@@ -971,7 +973,7 @@
       // ミニゲーム中は、右下のチャット欄がミニゲーム画面に切り替わる(全員)
       panel.style.display = active ? 'flex' : 'none';
       panel.style.flexDirection = 'column';
-      panel.style.height = active ? 'min(360px, 55vh)' : '';
+      panel.style.height = active ? 'min(430px, 62vh)' : '';
       chat.style.display = active ? 'none' : '';
       const startBtn = document.getElementById('ijStartBtn');
       if (startBtn) startBtn.disabled = r.phase === 'recruiting' || r.phase === 'playing';
@@ -1001,17 +1003,27 @@
         const picked = Array.from(r.pickedIds);
         const iAmIn = parts.indexOf(room.sessionId) !== -1;
         const revealing = r.step === 'reveal';
-        const total = parts.length + 3;
-        h += '<div style="text-align:center;font-size:12px;color:#999;margin-bottom:6px;">数字は 1〜' + total + '(場1・各自1・墓地2)/ 的中者で山分け</div>';
+        const total = parts.length + 2;
+        h += '<div style="text-align:center;font-size:12px;color:#999;margin-bottom:6px;">数字は 1〜' + total + '(場1・各自1・墓地1)/ 的中者で山分け</div>';
         // 場 + 自分(?)
         h += '<div style="display:flex;justify-content:center;align-items:flex-end;gap:22px;margin:2px 0 8px;">' +
           '<div style="text-align:center;font-size:11px;color:#999;">場' + ijCardHtml(r.fieldNum, 'gold') + '</div>' +
           '<div style="text-align:center;font-size:11px;color:#999;">あなた' + ijCardHtml(revealing && ijLast && ijLast.nums ? ijLast.nums[room.sessionId] : null) + '</div></div>';
-        // 公開された他人のカード
-        if (!revealing && ijInfo && iAmIn) {
-          h += '<div style="font-size:12px;color:#ffd24d;text-align:center;margin-bottom:4px;">あなたにだけ見えているカード</div><div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px;">' +
-            ijInfo.seen.map(function (c) { return '<div style="text-align:center;font-size:11px;color:#bbb;">' + (c.who === 'grave' ? '墓地' : pName(c.who)) + ijCardHtml(c.num, c.who === 'grave' ? 'dim' : '', true) + '</div>'; }).join('') + '</div>';
+        // 他プレイヤーと墓地のカード(見えているものは表、見えないものは裏)
+        const seenMap = {}, seenGrave = [];
+        if (ijInfo && iAmIn) ijInfo.seen.forEach(function (c) { if (c.who === 'grave') seenGrave.push(c.num); else seenMap[c.who] = c.num; });
+        const others = parts.filter(function (id) { return id !== room.sessionId; });
+        const revNums = revealing && ijLast ? ijLast.nums : null;
+        let row = others.map(function (id) {
+          const n = revNums ? revNums[id] : seenMap[id];
+          return '<div style="text-align:center;font-size:11px;color:#bbb;">' + pName(id) + '<br>' + ijCardHtml(n, '', true) + '</div>';
+        }).join('');
+        for (let g = 0; g < 1; g++) {
+          const n = revealing && ijLast ? ijLast.grave[g] : seenGrave[g];
+          row += '<div style="text-align:center;font-size:11px;color:#888;">墓地<br>' + ijCardHtml(n, 'dim', true) + '</div>';
         }
+        if (!revealing) h += '<div style="font-size:12px;color:#ffd24d;text-align:center;margin-bottom:2px;">あなたにだけ見えているカード(裏は見えない)</div>';
+        h += '<div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:8px;">' + row + '</div>';
         h += '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px;">' + parts.map(function (id) {
           const done = picked.indexOf(id) !== -1;
           let mark = '';
