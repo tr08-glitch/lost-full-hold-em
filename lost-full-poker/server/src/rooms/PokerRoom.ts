@@ -43,6 +43,7 @@ export class PokerRoom extends Room<RoomState> {
 
   // 現在の手番プレイヤーの行動タイムアウト(30秒操作がなければ自動フォールド)
   private actionTimeout: { clear: () => void } | null = null;
+  private lostInCallers = new Set<string>(); // ロストイン宣言にコールで応じた人(実行後も勝負に残る)
   private actionDeadline = 0; // 手番の締切(epoch ms)
   // 切断から強制退室までの猶予(秒)
   private static readonly DISCONNECT_GRACE_SEC = 20;
@@ -300,6 +301,13 @@ export class PokerRoom extends Room<RoomState> {
     const player = this.state.players.get(playerId);
     if (!player || player.folded || player.allIn) return;
 
+    // ロストイン応答待ち中の時間切れは、応答フローの「フォールド」として処理する(そうしないと宣言状態が残り手番が進まなくなる)
+    if (this.state.mode === "lostfull" && this.state.lostInActive) {
+      this.pushLog(`${player.name}が時間切れのため自動フォールドしました`);
+      this.handleLostInResponse({ sessionId: playerId } as Client, player, { type: "fold" } as ActionMessage);
+      return;
+    }
+
     player.folded = true;
     player.hasActed = true;
     player.lastAction = "fold";
@@ -412,13 +420,14 @@ export class PokerRoom extends Room<RoomState> {
 
   // ---------- ミニゲーム:インディアンジャッジ(ロビー専用) ----------
   // 掛け金は「次のゲームの初期チップ」から支払う。
-  // 数字カードは 1〜(人数+2)。場に1枚、各プレイヤーに1枚(自分のは見えない)、残り1枚は墓地(使われない)。
+  // 数字カードは 1〜(人数+2)。場に1枚(結果公開まで誰にも見えない)、各プレイヤーに1枚(自分のは見えない)、残り1枚は墓地(使われない)。
   // 各プレイヤーには「他プレイヤーの手札+墓地」のうち半数(切り捨て)がランダムに公開される。
   // それを踏まえて自分のカードが場より大きいか小さいかを予想し、的中者全員で全員の掛け金を山分け。
   private ijPicks = new Map<string, "high" | "low">();
   private ijSeen = new Map<string, { who: string; num: number }[]>(); // 各プレイヤーに公開された情報(本人にだけ送る)
   private ijNums = new Map<string, number>(); // 各プレイヤーの数字(非公開)
   private ijGrave: number[] = [];
+  private ijField = 0; // 場の数字(結果公開まで非公開)
   private ijTimer: { clear: () => void } | null = null;
   private ijTicker: { clear: () => void } | null = null;
   private static readonly IJ_PICK_SEC = 25;
@@ -522,7 +531,9 @@ export class PokerRoom extends Room<RoomState> {
       const j = Math.floor(Math.random() * (i + 1));
       [deck[i], deck[j]] = [deck[j]!, deck[i]!];
     }
-    r.fieldNum = deck[0]!;
+    this.ijField = deck[0]!;
+    r.fieldNum = 0;
+    r.roundId++;
     this.ijNums.clear();
     order.forEach((id, i) => this.ijNums.set(id, deck[1 + i]!));
     this.ijGrave = deck.slice(1 + n);
@@ -551,7 +562,7 @@ export class PokerRoom extends Room<RoomState> {
     if (r.phase !== "playing") return;
     const seen = this.ijSeen.get(client.sessionId);
     if (!seen) return;
-    client.send("ijInfo", { field: r.fieldNum, seen, total: r.participants.length + 2 });
+    client.send("ijInfo", { seen, total: r.participants.length + 2 });
   }
 
   private ijStartPick() {
@@ -591,7 +602,8 @@ export class PokerRoom extends Room<RoomState> {
     for (const id of parts) {
       if (!this.ijPicks.has(id)) this.ijPicks.set(id, Math.random() < 0.5 ? "high" : "low");
     }
-    const field = r.fieldNum;
+    const field = this.ijField;
+    r.fieldNum = field;
     const winners = parts.filter((id) => {
       const n = this.ijNums.get(id)!;
       return n > field ? this.ijPicks.get(id) === "high" : this.ijPicks.get(id) === "low";
@@ -707,6 +719,8 @@ export class PokerRoom extends Room<RoomState> {
 
   /** 結果発表後の再戦/ロビー復帰用:全員のチップ・身体・ストレス等を初期状態に戻す(切断中の人は除外) */
   private resetForNewGame() {
+    this.state.endReason = "";
+    this.clearDropTimers();
     this.runoutTimer?.clear();
     this.runoutTimer = null;
     for (const id of [...this.state.seatOrder] as string[]) {
@@ -808,19 +822,27 @@ export class PokerRoom extends Room<RoomState> {
     this.pushLog("ルームに戻りました");
   }
 
-  private endGame() {
+  private endGame(reason: "rounds" | "survivor") {
     this.actionTimeout?.clear();
     this.state.actionPlayerId = "";
     this.state.phase = "gameEnd"; // gameStartedはtrueのまま(クライアントはphaseで結果発表を表示する)
+    this.state.endReason = reason;
 
+    // 順位ルール:
+    //  ・ラウンド切れ … 死亡/廃人のスコアはチップ×0.7(それ以外はチップそのまま)
+    //  ・それ以外(生存者1人以下)… 死亡/廃人は全員敗北(生存扱いの人より下)
+    const score = (p: PlayerState) => (reason === "rounds" && (p.isDead || p.isVegetative) ? p.chips * 0.7 : p.chips);
     let winner: PlayerState | null = null;
     for (const id of this.state.seatOrder) {
       const p = this.state.players.get(id);
-      if (!p) continue;
-      if (!winner || p.chips > winner.chips) winner = p;
+      if (!p || p.isSurrendered) continue;
+      if (reason === "survivor" && (p.isDead || p.isVegetative)) continue;
+      if (!winner || score(p) > score(winner)) winner = p;
     }
     if (winner) {
-      this.pushLog(`--- 全${this.state.maxRounds}ラウンド終了。優勝: ${winner.name}(${winner.chips}チップ) ---`);
+      this.pushLog(reason === "rounds"
+        ? `--- 全${this.state.maxRounds}ラウンド終了。優勝: ${winner.name}(スコア${Math.round(score(winner) * 10) / 10}) ---`
+        : `--- 生存者が1人以下になったため終了。優勝: ${winner.name}(${winner.chips}チップ) ---`);
     }
   }
 
@@ -831,17 +853,18 @@ export class PokerRoom extends Room<RoomState> {
     this.runoutTimer = null;
     this.markBustedPlayers();
     this.state.needExchange.clear();
+    this.clearDropTimers();
     if (this.enterNeedExchangeIfAny()) return;
     const order = this.activeSeatOrder();
     this.handParticipants = order; // このハンドの参加者を確定・スナップショット
     if (order.length < 2) {
-      this.endGame();
+      this.endGame("survivor");
       return;
     }
 
     this.state.roundNumber++;
     if (this.state.roundNumber > this.state.maxRounds) {
-      this.endGame();
+      this.endGame("rounds");
       return;
     }
 
@@ -999,30 +1022,50 @@ export class PokerRoom extends Room<RoomState> {
 
   // ---------- ロストフルモード:身体パーツ換金 ----------
 
+  private static readonly DROP_MS = 3500; // カードを落としている(=公開されている)時間
+  private dropTimers = new Map<string, { clear: () => void }>();
+
+  /** 落下中の公開を終了する(指5本欠損の常時公開は対象外) */
+  private endCardDrop(player: PlayerState, side: "left" | "right") {
+    this.dropTimers.delete(player.id + ":" + side);
+    const lost = side === "left" ? player.fingersLostLeft : player.fingersLostRight;
+    if (lost >= 4) return;
+    if (side === "left") player.publicCardLeft = "";
+    else player.publicCardRight = "";
+  }
+  private clearDropTimers() {
+    this.dropTimers.forEach((t) => t.clear());
+    this.dropTimers.clear();
+  }
+
   /**
-   * 指の喪失本数に応じた確率でホールカードを公開する(1〜3本:確率判定、4〜5本:確定済みなのでここでは何もしない)。
-   * 「アクションを選択する瞬間」に毎回判定し、既に公開済みの側は再判定しない。
+   * 指を失った側は、アクションを選択する瞬間に確率でカードを卓に落とす(落ちている間だけ全員に見える)。
+   * 確率(1〜3本欠損):1本5% / 2本15% / 3本30%。4〜5本欠損(と腕の喪失)は常時公開(指が2本以下ではカードを持てないため)なのでここでは判定しない。
+   * 既に落ちている間は再判定しない。落ちたカードはDROP_MS後に拾い直されて非公開に戻る。
    */
   private checkFingerReveal(player: PlayerState) {
     const holeCards = this.holeCards.get(player.id);
     if (!holeCards) return;
     const probByCount: Record<number, number> = { 1: 0.05, 2: 0.15, 3: 0.3 };
 
-    if (!player.publicCardLeft && player.fingersLostLeft >= 1 && player.fingersLostLeft <= 3) {
-      if (Math.random() < probByCount[player.fingersLostLeft]) {
-        player.publicCardLeft = holeCards[0];
-        this.pushLog(`${player.name}の指の震えでカードが見えてしまった(左)`);
-      }
-    }
-    if (!player.publicCardRight && player.fingersLostRight >= 1 && player.fingersLostRight <= 3) {
-      if (Math.random() < probByCount[player.fingersLostRight]) {
-        player.publicCardRight = holeCards[1];
-        this.pushLog(`${player.name}の指の震えでカードが見えてしまった(右)`);
-      }
+    const sides: ("left" | "right")[] = ["left", "right"];
+    for (const side of sides) {
+      const lost = side === "left" ? player.fingersLostLeft : player.fingersLostRight;
+      const current = side === "left" ? player.publicCardLeft : player.publicCardRight;
+      if (current || lost < 1 || lost > 3) continue;
+      if (Math.random() >= probByCount[lost]!) continue;
+      const card = side === "left" ? holeCards[0]! : holeCards[1]!;
+      if (side === "left") player.publicCardLeft = card;
+      else player.publicCardRight = card;
+      this.pushLog(`${player.name}が手を滑らせてカードを落とした(${side === "left" ? "左" : "右"})`);
+      this.broadcast("cardDrop", { playerId: player.id, side, card, ms: PokerRoom.DROP_MS });
+      const key = player.id + ":" + side;
+      this.dropTimers.get(key)?.clear();
+      this.dropTimers.set(key, this.clock.setTimeout(() => this.endCardDrop(player, side), PokerRoom.DROP_MS));
     }
   }
 
-  /** 指が4〜5本無い側は、確率判定なしで常にホールカードが公開される(このハンドに手札が配られている場合のみ即時反映) */
+  /** 指が4〜5本無い側(腕を失った側を含む)は、確率判定なしで常にホールカードが公開される(このハンドに手札が配られている場合のみ即時反映) */
   private applyForcedFingerReveal(player: PlayerState, side: "left" | "right") {
     const lostCount = side === "left" ? player.fingersLostLeft : player.fingersLostRight;
     if (lostCount < 4) return;
@@ -1063,7 +1106,7 @@ export class PokerRoom extends Room<RoomState> {
         if (current >= 5) return;
         if (side === "left") player.fingersLostLeft++;
         else player.fingersLostRight++;
-        chipGain = 30;
+        chipGain = 20;
         stressGain = 3;
         label = `指(${side === "left" ? "左" : "右"})`;
         this.applyForcedFingerReveal(player, side);
@@ -1078,17 +1121,13 @@ export class PokerRoom extends Room<RoomState> {
         break;
       }
       case "ear": {
-        if (side !== "left" && side !== "right") return deny("invalid_side");
-        if (side === "left") {
-          if (player.earsLostLeft) return deny("already_lost");
-          player.earsLostLeft = true;
-        } else {
-          if (player.earsLostRight) return deny("already_lost");
-          player.earsLostRight = true;
-        }
-        chipGain = 70;
-        stressGain = 10;
-        label = `耳(${side === "left" ? "左" : "右"})`;
+        // 耳は左右同時に1回で換金(sideは無視)
+        if (player.earsLostLeft || player.earsLostRight) return deny("already_lost");
+        player.earsLostLeft = true;
+        player.earsLostRight = true;
+        chipGain = 140;
+        stressGain = 20;
+        label = "耳(両耳)";
         break;
       }
       case "lung": {
@@ -1129,7 +1168,7 @@ export class PokerRoom extends Room<RoomState> {
           if (player.armsLostRight) return deny("already_lost");
           player.armsLostRight = true;
         }
-        chipGain = 250;
+        chipGain = 150;
         stressGain = 20;
         label = `腕(${side === "left" ? "左" : "右"})`;
         // 連鎖:その腕の指5本も同時に喪失(連鎖分のチップ・ストレスは加算しない)
@@ -1141,7 +1180,7 @@ export class PokerRoom extends Room<RoomState> {
       case "heart": {
         if (player.heartLost) return deny("already_lost");
         player.heartLost = true;
-        chipGain = 750;
+        chipGain = 400;
         stressGain = 0; // 心臓はストレス対象外
         label = "心臓";
         causesDeath = true;
@@ -1179,19 +1218,19 @@ export class PokerRoom extends Room<RoomState> {
 
   // ---------- ロストフルモード:ロストイン(特殊技) ----------
 
-  /** 残存する換金可能部位(心臓除く)の合計チップ換算額=「赤札」を計算する */
+  /** 残存する換金可能部位(心臓含む)の合計チップ換算額=「赤札」を計算する */
   private calculateRedCardAmount(player: PlayerState): number {
     let total = 0;
-    total += (5 - player.fingersLostLeft) * 30 + (5 - player.fingersLostRight) * 30;
+    total += (5 - player.fingersLostLeft) * 20 + (5 - player.fingersLostRight) * 20;
     if (!player.teethLost) total += 200;
-    if (!player.earsLostLeft) total += 70;
-    if (!player.earsLostRight) total += 70;
+    if (!player.earsLostLeft && !player.earsLostRight) total += 140;
     if (!player.lungsLostLeft) total += 150;
     if (!player.lungsLostRight) total += 150;
     if (!player.eyesLostLeft) total += 250;
     if (!player.eyesLostRight) total += 250;
-    if (!player.armsLostLeft) total += 250;
-    if (!player.armsLostRight) total += 250;
+    if (!player.armsLostLeft) total += 150;
+    if (!player.armsLostRight) total += 150;
+    if (!player.heartLost) total += 400; // ロストインは心臓も含む
     return total;
   }
 
@@ -1211,6 +1250,7 @@ export class PokerRoom extends Room<RoomState> {
     player.eyesLostRight = true;
     player.armsLostLeft = true;
     player.armsLostRight = true;
+    player.heartLost = true;
     player.isDead = true; // ロストイン実行者は勝敗に関わらず死亡
 
     player.totalRoundBet += amount;
@@ -1223,6 +1263,7 @@ export class PokerRoom extends Room<RoomState> {
   /** ロストイン宣言(赤札の提示のみ。この時点ではまだ何も失わない) */
   private declareLostIn(player: PlayerState) {
     const amount = this.calculateRedCardAmount(player);
+    this.lostInCallers.clear();
     this.state.lostInActive = true;
     this.state.lostInDeclarerId = player.id;
     this.state.lostInAmount = amount;
@@ -1256,7 +1297,7 @@ export class PokerRoom extends Room<RoomState> {
 
   /** ロストイン宣言に対する応答(フォールド/コール/対抗ロストイン)を処理する */
   private handleLostInResponse(client: Client, player: PlayerState, message: ActionMessage) {
-    if (message.type !== "fold" && message.type !== "call" && message.type !== "lostin") {
+    if (message.type !== "fold" && message.type !== "call" && message.type !== "lostin" && message.type !== "allin") {
       this.sendToPlayer(client.sessionId, "actionError", { reason: "lostin_response_required" });
       return;
     }
@@ -1294,15 +1335,21 @@ export class PokerRoom extends Room<RoomState> {
       return;
     }
 
-    if (message.type === "call") {
-      const payAmount = Math.min(this.state.lostInAmount, player.chips);
+    if (message.type === "call" || message.type === "allin") {
+      // コール=赤札額(足りなければ全額)/オールイン=手持ちを全て賭ける。どちらもロストインへの応答として成立する
+      if (message.type === "allin" && player.chips <= 0) {
+        this.sendToPlayer(client.sessionId, "actionError", { reason: "no_chips" });
+        return;
+      }
+      const payAmount = message.type === "allin" ? player.chips : Math.min(this.state.lostInAmount, player.chips);
       player.chips -= payAmount;
       player.totalRoundBet += payAmount;
       this.state.pot += payAmount;
       if (player.chips === 0) player.allIn = true;
       player.hasActed = true;
-      player.lastAction = "call";
-      this.pushLog(`${player.name}が赤札分をコール(${payAmount}チップ)`);
+      player.lastAction = message.type === "allin" ? "allin" : "call";
+      this.lostInCallers.add(player.id);
+      this.pushLog(message.type === "allin" ? `${player.name}がロストインにオールインで応答(${payAmount}チップ)` : `${player.name}が赤札分をコール(${payAmount}チップ)`);
 
       this.executeLostIn(declarer, this.state.lostInAmount);
       this.resolveLostInExecution();
@@ -1323,7 +1370,7 @@ export class PokerRoom extends Room<RoomState> {
 
     for (const id of this.handParticipants) {
       const p = this.state.players.get(id)!;
-      if (!p.folded && !p.allIn) {
+      if (!p.folded && !p.allIn && !this.lostInCallers.has(id)) {
         p.folded = true;
         p.hasActed = true;
         p.lastAction = "fold";
@@ -1416,8 +1463,17 @@ export class PokerRoom extends Room<RoomState> {
     // ロストフルモード:腕を失っている場合、チェック/コール以外は選択不可
     // (ただしロストインの宣言・対抗ロストインは例外的に可能。捨て身の特攻なので腕の制約を受けない)
     const armRestricted = player.armsLostLeft || player.armsLostRight;
+    // 例外:オールインでも「コール扱い」(レイズにならない)ものは可能
+    //  ・通常時: 手持ち全額を出しても現在のベット額に届かない/ちょうどのとき
+    //  ・ロストイン応答時: 手持ちが赤札額以下のとき
+    const nonRaisingAllIn =
+      message.type === "allin" &&
+      (this.state.lostInActive
+        ? player.chips <= this.state.lostInAmount
+        : player.currentBet + player.chips <= this.state.currentBet);
     if (
       armRestricted &&
+      !nonRaisingAllIn &&
       (message.type === "raise" || message.type === "allin" || message.type === "fold")
     ) {
       this.sendToPlayer(client.sessionId, "actionError", { reason: "arm_restricted" });

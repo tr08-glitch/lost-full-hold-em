@@ -198,7 +198,7 @@ room.send("updateSettings", {
 ```js
 room.send("exchangeBodyPart", { part: "finger", side: "left" });
 room.send("exchangeBodyPart", { part: "tooth" });          // sideなし
-room.send("exchangeBodyPart", { part: "ear", side: "right" });
+room.send("exchangeBodyPart", { part: "ear" });                // 耳は左右同時に1回(sideなし。earsLostLeft/Rightが同時にtrue)
 room.send("exchangeBodyPart", { part: "lung", side: "left" });
 room.send("exchangeBodyPart", { part: "eye", side: "right" });
 room.send("exchangeBodyPart", { part: "arm", side: "left" });
@@ -233,15 +233,16 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 1. 自分の手番で `action:{type:"lostin"}` を送ると宣言になる。この時点ではまだ何も失わない。
    `lostInActive=true`、`lostInDeclarerId`、`lostInAmount`(宣言者の赤札額)がセットされ、
    手番が宣言者の次のプレイヤーに移る
-2. `lostInActive`がtrueの間、手番のプレイヤーは以下の3つの`action`のみ有効:
+2. `lostInActive`がtrueの間、手番のプレイヤーは以下の4つの`action`のみ有効:
    - `{type:"fold"}`:このロストインを無視してフォールド
    - `{type:"call"}`:赤札額(`lostInAmount`)分を通常チップで支払う → **即座に宣言者のロストインが実行され、ショーダウンに進む**
+   - `{type:"allin"}`:手持ちを全て賭けて応答(`call`と同様に即座に宣言者のロストインが実行される)
    - `{type:"lostin"}`:自分も対抗ロストインする(自分の残存部位を換算した独自の赤札額で)→ **宣言者・自分の両方のロストインが即座に実行され、ショーダウンに進む**
 3. 手番の全員が`fold`した場合(宣言者以外が全員フォールド):ロストインは不実行のまま終了し、宣言者が通常のポットを獲得する(身体は失わない)
 4. コール・対抗ロストインで実行が確定した時点で、まだ応答していない他のプレイヤーは自動的にフォールド扱いになり、残りのコミュニティカードが公開されてショーダウンに進む
 5. ロストインを実行したプレイヤー(宣言者・対抗者とも)は、勝敗に関わらず`isDead=true`になる
 
-`actionError`の`reason: "lostin_response_required"`は、`lostInActive`中に上記3種類以外の`action`を送った場合に返る。
+`actionError`の`reason: "lostin_response_required"`は、`lostInActive`中に上記4種類(fold/call/lostin/allin)以外の`action`を送った場合に返る。
 
 ## 今後の課題(未着手)
 - ルームコード(4桁)を人に伝える手段(コピー機能など)はUI未実装。今は画面に表示するのみ
@@ -249,11 +250,36 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 
 
 ## ミニゲーム:インディアンジャッジ(ロビー専用)
-- state: `ij { phase: idle|recruiting|playing|result, bet, participants[], step: pick|reveal, fieldNum, pickedIds[], winners[], winnerGain, turnLeft }`
+- state: `ij { phase: idle|recruiting|playing|result, bet, participants[], step: pick|reveal, fieldNum(結果公開まで0), roundId, pickedIds[], winners[], winnerGain, turnLeft }`
 - client→server: `ijOpen {bet}`(GM。1〜BB)/ `ijSetBet {bet}`(GM、募集中のみ)/ `ijJoin`(参加・辞退のトグル)/ `ijBegin`(GM、2人以上)/ `ijPick {pick:"high"|"low"}`(25秒以内に何度でも変更可)/ `ijInfoReq`(自分の公開情報の再送要求)/ `ijClose`(GM。中止・結果画面を閉じる)
-- server→client: `ijInfo {field, seen:[{who:playerId|"grave", num}], total}`(本人にだけ)/ `ijReveal {field, nums{id:number}, picks{id:high|low}, grave[], winners[]}`
+- server→client: `ijInfo {seen:[{who:playerId|"grave", num}], total}`(本人にだけ)/ `ijReveal {field, nums{id:number}, picks{id:high|low}, grave[], winners[]}`
 - ルール: 数字カードは1〜(人数+2)。場1枚・各プレイヤー1枚(自分のは見えない)・墓地1枚。各プレイヤーには「他プレイヤー+墓地」のうち半数(切り捨て)がランダムに公開される。自分の数字が場より大きいか小さいかを予想し、的中者全員で掛け金を山分け(全員外れなら増減なし)。掛け金は次のゲームの初期チップから(`chipDelta`)。
 
 ## 観戦者
 - ゲーム開始後に入室した人は `players[id].isSpectator = true`(座席なし・手番なし・チップ0)。ニューゲーム/ロビー復帰時に空き席があれば通常プレイヤーに昇格。
 - 設定 `spectatorSeeHands`(GM、デフォルトfalse)がtrueのとき、観戦者に `spectatorHands { hands: {playerId: [card, card]} }` が各ラウンド開始時と入室時に送られる。
+
+
+## 終了時の順位
+- `state.endReason`: `"rounds"`(ラウンド切れ)/ `"survivor"`(生存者1人以下)。ゲーム終了(`phase==="gameEnd"`)で設定される。
+- `rounds`: 死亡・廃人のスコア=チップ×0.7。それ以外はチップそのまま。スコア降順で順位。
+- `survivor`: 死亡・廃人は全員敗北(それ以外の人より下)。降参者は常に最下位。
+
+## ロストフル 部位価格(最新)
+| 部位 | チップ | ストレス |
+|---|---|---|
+| 指(1本) | 20 | 3 |
+| 歯 | 200 | 10 |
+| 耳(左右同時1回) | 140 | 20 |
+| 肺(片方) | 150 | 25 |
+| 目(片方) | 250 | 15 |
+| 腕(片方) | 150 | 20(同側の指5本も連鎖喪失・連鎖分は加算なし) |
+| 心臓 | 400 | なし(即死) |
+
+- ロストインの赤札=残存部位の合計(**心臓も含む**)。実行時は心臓も失う(`heartLost=true, isDead=true`)。
+- 腕喪失中でも、レイズにならない`allin`(手持ち全額でも現在のベットに届かない場合、ロストイン応答時は手持ち≦赤札額の場合)は可能。ロストインへの応答では`allin`(手持ちを全て賭ける)も有効。
+
+## カードの落下(指の欠損)
+- server→client(全員にbroadcast): `cardDrop { playerId, side:"left"|"right", card, ms }`(ms=見えている時間。3500)
+- 落下中は`players[id].publicCardLeft/Right`にカードが入り、`ms`後に空に戻る。指4〜5本欠損の側は空に戻らず常時公開。
+- 確率: 1本5% / 2本15% / 3本30%(4本以上は常時公開。行動のたびに判定。落下中は再判定しない)。

@@ -20,7 +20,8 @@ export class IJState extends Schema {
   @type("number") bet: number = 0; // 掛け金(次のゲームの初期チップから)
   @type(["string"]) participants = new ArraySchema<string>();
   @type("string") step: "pick" | "reveal" = "pick"; // pick=予想中 / reveal=結果公開中
-  @type("number") fieldNum: number = 0; // 場の数字(全員に公開)
+  @type("number") fieldNum: number = 0; // 場の数字(結果公開まで0=非公開)
+  @type("number") roundId: number = 0; // 開始ごとに増える(クライアントのリセット用)
   @type(["string"]) pickedIds = new ArraySchema<string>(); // 予想済みの人(内容は非公開)
   @type(["string"]) winners = new ArraySchema<string>(); // 的中者
   @type("number") winnerGain: number = 0; // 的中者1人あたりの純増額(山分け−自分の掛け金)
@@ -40,6 +41,7 @@ export class RoomState extends Schema {
   @type([SidePot]) sidePots = new ArraySchema<SidePot>();
 
   @type("string") phase: GamePhase = "waiting";
+  @type("string") endReason: "" | "rounds" | "survivor" = ""; // ゲーム終了理由(rounds=ラウンド切れ / survivor=生存者1人以下)
 
   @type("number") dealerSeatIndex: number = -1;
   @type("string") actionPlayerId: string = "";
