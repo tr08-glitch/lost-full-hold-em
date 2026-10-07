@@ -35,7 +35,7 @@ RoomState {
   communityCards: string[]         // 例: ["As", "Kd", "9h"]。まだ公開されていない分は要素として存在しない
   pot: number
   sidePots: { amount, eligiblePlayerIds }[]
-  phase: "waiting"|"preflop"|"flop"|"turn"|"river"|"showdown"|"roundEnd"|"gameEnd"
+  phase: "waiting"|"preflop"|"flop"|"turn"|"river"|"judge"|"showdown"|"roundEnd"|"gameEnd"
   dealerSeatIndex: number
   actionPlayerId: string           // 現在の手番のsessionId
   currentBet: number
@@ -252,5 +252,5 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 - state: `roulette { phase: idle|recruiting|playing|result, bet, participants[], turnPlayerId, pulls, loserId, payoutEach, turnLeft }`、`players[].chipDelta`(次のゲームの初期チップ加減額。ゲーム開始/ニューゲームで適用され0に戻る)
 - client→server: `rouletteOpen {bet}`(GM。1〜BB)/ `rouletteJoin`(参加・辞退のトグル)/ `rouletteBegin`(GM、2人以上)/ `roulettePull`(手番の人)/ `rouletteClose`(GM。中止または結果を閉じる)
 - server→client: `rouletteShot {playerId, hit, pull}`
-- 手番は15秒で自動的に引かれる。命中した1人が掛け金を失い、生存者で等分(端数切り捨て)。
+- 手番は15秒で自動的に引かれる。被弾した人は脱落し、弾を込め直して続行。参加2〜4人は最後の1人が総取り、5人以上は最後の2人で山分け(端数切り捨て)。state: eliminated[] / winners[] / roundNo / winnerGain。
 - 追加: `rouletteSetBet {bet}`(GM、募集中のみ掛け金を変更。払えなくなった参加者は自動で外れる)

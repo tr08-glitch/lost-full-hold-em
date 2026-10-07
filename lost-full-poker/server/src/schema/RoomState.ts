@@ -9,6 +9,8 @@ export type GamePhase =
   | "turn"
   | "river"
   | "showdown"
+  | "judge"
+  | "needExchange" // ロストフル:チップが尽きたプレイヤーが部位換金を終えるのを待っている
   | "roundEnd" // ラウンド結果表示中(次ラウンドへの短い間)
   | "gameEnd"; // 全ラウンド終了、最終結果表示
 
@@ -19,8 +21,10 @@ export class RouletteState extends Schema {
   @type(["string"]) participants = new ArraySchema<string>();
   @type("string") turnPlayerId: string = "";
   @type("number") pulls: number = 0; // これまでに引き金を引いた回数(0〜6)
-  @type("string") loserId: string = "";
-  @type("number") payoutEach: number = 0; // 生存者1人あたりの獲得額
+  @type(["string"]) eliminated = new ArraySchema<string>(); // 被弾して脱落した人(脱落順)
+  @type(["string"]) winners = new ArraySchema<string>(); // 最後まで生き残った人(結果表示用)
+  @type("number") roundNo: number = 0; // 何巡目(再装填の回数+1)
+  @type("number") winnerGain: number = 0; // 勝者1人あたりの純増額(山分け−自分の掛け金)
   @type("number") turnLeft: number = 0; // 手番の残り秒数
 }
 
@@ -48,6 +52,7 @@ export class RoomState extends Schema {
   @type("number") bigBlind: number = 40;
 
   @type("number") roundNumber: number = 0;
+  @type(["string"]) needExchange = new ArraySchema<string>(); // チップが尽きて換金待ちのプレイヤー
   @type("number") timeLimit: number = 30; // 持ち時間(秒)。時間切れで自動フォールド
   @type("number") timeLeft: number = 0; // 現在の手番の残り秒数(表示用)
   @type("number") maxRounds: number = 10;

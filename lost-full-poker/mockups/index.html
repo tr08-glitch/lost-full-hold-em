@@ -8,13 +8,21 @@
   .app-screen { display:none; }
 
   /* ---------- タイトル画面 ---------- */
-  .screen-title { position:relative; width:100%; height:100vh; box-sizing:border-box; padding:24px; }
-  .title-logo { position:absolute; top:24px; left:24px; font-size:28px; color:#b91c1c; letter-spacing:2px; }
+  .screen-title { position:relative; width:100%; height:100vh; box-sizing:border-box; padding:24px; background:#050304 url('assets/title-bg.jpg') center/cover no-repeat; overflow:hidden; }
+  .title-center { position:absolute; left:50%; top:51%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:14px; width:min(92%,420px); }
+  .title-center .title-logo { position:static; text-align:center; }
+  .title-center .name-input { position:static; text-align:center; }
+  .title-center .menu { position:static; transform:none; align-items:stretch; width:min(100%,280px); gap:12px; }
+  .title-center .menu button { padding:14px 24px; }
+  .title-logo-img { width:min(88vw,520px); display:block; margin:0 auto; filter:drop-shadow(0 0 16px #000000); }
+  .title-main { font-size:clamp(30px,6vw,56px); font-weight:bold; letter-spacing:6px; color:#d8c9a3; text-shadow:0 0 18px #b91c1c, 0 2px 6px #000; font-family:"Hiragino Mincho ProN","Yu Mincho",serif; line-height:1.15; }
+  .title-sub { font-size:clamp(12px,2vw,16px); letter-spacing:8px; color:#d8c9a3; margin-top:4px; text-shadow:0 2px 6px #000; }
+  .title-logo { position:absolute; top:24px; left:24px; }
   .settings-icon { position:absolute; top:24px; right:24px; font-size:24px; cursor:pointer; }
   .name-input { position:absolute; top:80px; left:24px; }
   .name-input input { background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px 12px; border-radius:4px; }
   .menu { position:absolute; top:50%; left:6%; transform:translateY(-50%); display:flex; flex-direction:column; gap:16px; }
-  .menu button { background:#1a1a1a; border:1px solid #b91c1c; color:#eee; padding:16px 48px; font-size:16px; border-radius:6px; cursor:pointer; }
+  .menu button { background:#140a0acc; border:1px solid #b91c1c; color:#eee; padding:16px 48px; font-size:16px; border-radius:6px; cursor:pointer; }
   .menu button:hover { background:#b91c1c33; }
   .credit { position:absolute; bottom:24px; right:24px; color:#777; font-size:12px; cursor:pointer; }
 
@@ -64,7 +72,8 @@
   .modal-actions button { flex:1; }
 
   /* ---------- 対戦卓画面 ---------- */
-  .screen-table { position:relative; width:100%; height:100vh; box-sizing:border-box; overflow:hidden; }
+  .screen-table { position:relative; width:100%; height:100vh; box-sizing:border-box; overflow:hidden; background:radial-gradient(ellipse at 50% 46%, #14100c 0%, #060504 80%); }
+  .screen-table::before { content:''; position:absolute; left:50%; top:46%; width:min(96vw, calc(86vh * 1.667)); aspect-ratio:1619/971; transform:translate(-50%,-50%); background:url('assets/table.webp') center/100% 100% no-repeat; pointer-events:none; -webkit-mask-image:radial-gradient(ellipse 51% 52% at 50% 50%, #000 90%, transparent 100%); mask-image:radial-gradient(ellipse 51% 52% at 50% 50%, #000 90%, transparent 100%); }
   .round-box { position:absolute; top:16px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:13px; }
   .turn-timer { position:absolute; top:112px; left:16px; background:#141414; border:1px solid #444; border-radius:6px; padding:8px 14px; font-size:12px; color:#bbb; min-width:84px; text-align:center; z-index:4; }
   .turn-timer .tt-sec { font-size:30px; font-weight:bold; color:#4ade80; line-height:1.1; }
@@ -81,6 +90,10 @@
   .opponent .stat-line.red { color:#e05252; }
   .opponent .name { font-size:14px; color:#ddd; font-weight:bold; }
   .bet-chip { display:flex; align-items:baseline; justify-content:center; gap:6px; margin-top:6px; padding:5px 8px; border-radius:6px; background:#1a1a1a; border:1px solid #333; color:#666; }
+  .chipstack { display:inline-flex; gap:3px; align-items:flex-end; vertical-align:middle; }
+  .chipcol { position:relative; }
+  .chipcol img { position:absolute; left:0; width:100%; display:block; filter:drop-shadow(0 1px 1px #000); }
+  .pot-chips { margin-top:4px; min-height:4px; text-align:center; }
   .bet-chip .lbl { font-size:11px; letter-spacing:1px; }
   .bet-chip .amt { font-size:22px; font-weight:bold; }
   .bet-chip.active { background:#2a2208; border:2px solid #e0b040; color:#ffd24d; box-shadow:0 0 10px #e0b04055; }
@@ -118,20 +131,24 @@
     border: 1px solid #666; border-radius:6px; box-shadow:0 2px 4px #00000088; position:relative; overflow:hidden;
   }
   .hand-card.face-down, .community-card.face-down, .opponent-mini-card.face-down {
-    background-image: url('assets/card-back.jpg');
+    background-image: url('assets/cards/BACK.webp'); background-color:transparent; border:none; box-shadow:none; filter:drop-shadow(0 2px 3px #000000cc); overflow:visible;
   }
-  .hand-card { width:72px; height:108px; }
-  .community-card { width:54px; height:81px; }
-  .opponent-mini-card { width:30px; height:45px; border-radius:3px; }
-  .hand-label { position:absolute; bottom:108px; left:50%; transform:translateX(-50%); font-size:11px; color:#888; }
-  .self-panel { position:absolute; bottom:16px; left:16px; background:#141414; border:1px solid #b91c1c; border-radius:8px; padding:12px; width:220px; }
+  .hand-card { width:66px; height:135px; }
+  .community-card { width:54px; height:111px; }
+  .opponent-mini-card { width:28px; height:57px; border-radius:3px; }
+  .hand-card.has-img, .community-card.has-img, .opponent-mini-card.has-img { background:transparent; border:none; box-shadow:none; overflow:visible; }
+  .card-img { width:100%; height:100%; display:block; object-fit:fill; filter:drop-shadow(0 2px 3px #000000cc); }
+  .hand-card, .community-card, .opponent-mini-card { background-size:cover; background-position:center; }
+  .hand-label { position:absolute; bottom:135px; left:50%; transform:translateX(-50%); font-size:11px; color:#888; }
+  .self-panel { overflow:hidden; position:absolute; bottom:16px; left:16px; background:#141414; border:1px solid #b91c1c; border-radius:8px; padding:12px; width:220px; }
   .self-panel .name { font-size:13px; color:#999; margin-bottom:8px; }
   .row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
   .body-icon { width:32px; height:32px; border:1px solid #b91c1c; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:14px; cursor:pointer; background:#b91c1c22; }
   .red-note { font-size:12px; color:#e05252; }
   .stat { background:#1a1a1a; border:1px solid #444; border-radius:4px; padding:4px 10px; font-size:13px; flex:1; }
-  .pot-display { position:absolute; top:calc(48% - 92px); left:50%; transform:translateX(-50%); text-align:center; background:#1a1608; border:2px solid #e0b040; border-radius:24px; padding:6px 22px; color:#ffd24d; box-shadow:0 0 14px #e0b04044; z-index:3; white-space:nowrap; }
+  .pot-display { position:absolute; top:auto; bottom:calc(52% + 62px); left:50%; transform:translateX(-50%); text-align:center; background:#1a1608; border:2px solid #e0b040; border-radius:24px; padding:6px 22px; color:#ffd24d; box-shadow:0 0 14px #e0b04044; z-index:3; white-space:nowrap; }
   .pot-display .lbl { font-size:11px; letter-spacing:2px; color:#c9a43a; margin-right:8px; }
+  .pot-layers { font-size:11px; color:#e8d28a; margin-top:2px; line-height:1.5; }
   .pot-display .amt { font-size:26px; font-weight:bold; }
   .community-area { position:absolute; top:48%; left:50%; transform:translate(-50%,-50%); display:flex; align-items:center; gap:24px; }
   .community-cards { display:flex; gap:6px; }
@@ -144,16 +161,29 @@
   .exchange-drawer.open { transform:translateX(0); }
   .drawer-close { position:absolute; top:12px; left:12px; cursor:pointer; color:#ccc; font-size:13px; border:1px solid #666; border-radius:4px; padding:4px 10px; }
   .drawer-note { font-size:11px; color:#888; text-align:right; line-height:1.6; margin-bottom:8px; }
-  .drawer-figure { width:170px; height:250px; margin:36px auto 12px; }
-  .drawer-figure svg { width:100%; height:100%; }
-  .drawer-base-fill { fill:#cfcfcf; }
-  .drawer-base-line { stroke:#cfcfcf; }
-  .drawer-part { fill:#cfcfcf; stroke:#8a8a8a; stroke-width:1.5; transition:fill .15s, stroke .15s; }
-  .drawer-part-line { stroke:#cfcfcf; transition:stroke .15s; fill:none; }
-  .drawer-part.lost { fill:#000; stroke:#000; }
-  .drawer-part-line.lost { stroke:#000; }
-  .drawer-part.highlight { stroke:#b91c1c; stroke-width:2.5; }
-  .drawer-part-line.highlight { stroke:#b91c1c; }
+  .drawer-figure { width:300px; max-width:100%; margin:30px auto 10px; }
+  .body-monitor { position:relative; width:100%; aspect-ratio:925/1315; }
+  .bm-frame { position:absolute; inset:0; width:100%; height:100%; display:block; }
+  .bm-screen { position:absolute; left:9.7%; top:4.9%; width:77%; height:87.8%; overflow:hidden; border-radius:4px; }
+  .bm-screen canvas { position:absolute; left:0; top:50%; width:100%; transform:translateY(-50%); mix-blend-mode:screen; }
+  .xray-monitor { position:relative; background:#0b0b0d; border-radius:12px 12px 8px 8px; padding:10px 10px 18px; box-shadow:0 0 0 2px #2a2a2e, 0 8px 22px #000000cc; }
+  .xray-monitor::after { content:'LFH'; position:absolute; bottom:4px; left:50%; transform:translateX(-50%); font-size:8px; letter-spacing:3px; color:#555; }
+  .xray-screen { position:relative; border-radius:3px; overflow:hidden; background:radial-gradient(ellipse at 50% 40%, #1d2a36 0%, #0b1118 65%, #05080c 100%); aspect-ratio:200/300; }
+  .xray-screen svg { position:absolute; inset:0; width:100%; height:100%; }
+  .xray-screen::before { content:''; position:absolute; inset:0; z-index:2; pointer-events:none; background:repeating-linear-gradient(0deg, #ffffff08 0, #ffffff08 1px, transparent 1px, transparent 3px); }
+  .xray-screen::after { content:''; position:absolute; inset:0; z-index:2; pointer-events:none; background:linear-gradient(115deg, #ffffff14 0%, transparent 35%); }
+  .xray-hud { position:absolute; z-index:3; font-size:8px; letter-spacing:1px; color:#7fb6d8aa; font-family:monospace; pointer-events:none; }
+  .xray-stand { width:58px; height:14px; margin:0 auto; background:linear-gradient(#1b1b1f,#0d0d10); border-radius:0 0 4px 4px; }
+  .xray-foot { width:120px; height:8px; margin:0 auto; background:#18181b; border-radius:50%/100%; box-shadow:0 4px 10px #000; }
+  .drawer-base-fill { fill:#9cc4de22; stroke:#bfe3f8; stroke-width:1.4; }
+  .drawer-base-line { stroke:#bfe3f8; opacity:.85; }
+  .drawer-part { fill:#bfe3f855; stroke:#e6f6ff; stroke-width:1.5; transition:fill .15s, stroke .15s; }
+  .drawer-part-line { stroke:#e6f6ff; transition:stroke .15s; fill:none; }
+  .drawer-part.lost { fill:#000; stroke:#3a0d0d; stroke-dasharray:2 2; }
+  .drawer-part-line.lost { stroke:#02050a; opacity:1; }
+  .drawer-part.highlight { stroke:#ff4040; stroke-width:2.5; fill:#ff404066; filter:drop-shadow(0 0 4px #ff4040); }
+  .drawer-part-line.highlight { stroke:#ff4040; filter:drop-shadow(0 0 4px #ff4040); }
+  .xray-bone { fill:none; stroke:#bfe3f8; opacity:.8; }
   .drawer-select-row { display:flex; gap:8px; align-items:center; }
   .drawer-select-row select { flex:1; background:#1a1a1a; border:1px solid #444; color:#eee; padding:8px; border-radius:4px; }
   .drawer-legend { font-size:10px; color:#777; margin-top:10px; text-align:center; }
@@ -203,6 +233,13 @@
     opacity:0; pointer-events:none; transition:opacity .25s ease, transform .25s ease;
     font-family: Georgia, serif;
   }
+  .judge-box { position:absolute; top:20%; left:50%; transform:translate(-50%,-50%); z-index:15; display:none; min-width:260px; max-width:90%; background:#0d0a12ee; border:3px solid #b04aff; border-radius:16px; padding:14px 26px; box-shadow:0 0 36px #b04aff66; color:#eadcff; text-align:center; pointer-events:none; }
+  .judge-box.show { display:block; }
+  .judge-box .jb-title { font-size:26px; font-weight:bold; letter-spacing:6px; color:#d9a8ff; margin-bottom:8px; }
+  .judge-box .jb-row { font-size:18px; margin:5px 0; padding:4px 10px; border-radius:8px; background:#ffffff10; animation:jbIn .4s; }
+  .judge-box .jb-row.win { background:#ffd24d33; color:#ffd24d; font-weight:bold; border:1px solid #ffd24d; }
+  @keyframes jbIn { from { opacity:0; transform:translateY(8px);} to { opacity:1; transform:none; } }
+  .dead-emblem { position:absolute; left:50%; top:50%; width:92%; transform:translate(-50%,-50%); opacity:.5; mix-blend-mode:screen; pointer-events:none; z-index:2; }
   .win-banner { position:absolute; top:42%; left:50%; transform:translate(-50%,-50%) scale(.8); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; z-index:16; text-align:center; background:#1a1608ee; border:3px solid #ffd24d; border-radius:16px; padding:18px 40px; box-shadow:0 0 40px #ffd24d66; color:#ffd24d; }
   .win-banner .wb-title { font-size:34px; font-weight:bold; letter-spacing:4px; }
   .win-banner .wb-pot { font-size:20px; margin-top:6px; color:#fff1b8; }
@@ -214,16 +251,18 @@
 
   <!-- ================= タイトル画面 ================= -->
   <div class="app-screen screen-title" id="screen-title">
-    <div class="title-logo">LOST FULL HOLDEM</div>
     <div class="settings-icon">⚙</div>
-    <div class="name-input">
-      <label style="font-size:12px;color:#999;">プレイヤー名</label><br>
-      <input type="text" id="playerNameInput" placeholder="名前(未入力なら自動)" maxlength="10">
-    </div>
-    <div class="menu">
-      <button onclick="startAsGM(this)">AI戦</button>
-      <button onclick="startAsGM(this)">ルーム作成</button>
-      <button onclick="goToJoinScreen()">ルーム参加</button>
+    <div class="title-center">
+      <div class="title-logo"><img class="title-logo-img" src="assets/logo.webp" alt="LOST FULL HOLD'EM"><div class="title-sub">ロストフルホールデム</div></div>
+      <div class="name-input">
+        <label style="font-size:12px;color:#bbb;">プレイヤー名</label><br>
+        <input type="text" id="playerNameInput" placeholder="名前(未入力なら自動)" maxlength="10">
+      </div>
+      <div class="menu">
+        <button onclick="startAsGM(this)">AI戦</button>
+        <button onclick="startAsGM(this)">ルーム作成</button>
+        <button onclick="goToJoinScreen()">ルーム参加</button>
+      </div>
     </div>
     <div class="credit">Credit</div>
   </div>
@@ -290,7 +329,7 @@
       </div>
       <div class="chat-box" id="roulettePanel" style="display:none;overflow-y:auto;border-color:#b91c1c;">
         <label style="color:#e05252;letter-spacing:2px;">🔫 ロシアンルーレット</label>
-        <div style="font-size:11px;color:#999;margin:4px 0 10px;">次のゲームの初期チップを少し賭けるミニゲーム。弾に当たった1人が掛け金を失い、生き残った人で山分け。</div>
+        <div style="font-size:11px;color:#999;margin:4px 0 10px;">次のゲームの初期チップを少し賭けるミニゲーム。被弾した人は脱落し、2〜4人なら最後の1人が総取り、5人以上なら最後の2人で山分け。</div>
         <div id="rouletteBody"></div>
       </div>
     </div>
@@ -353,6 +392,8 @@
   </div>
   <div class="app-screen screen-table" id="screen-table">
     <div class="phase-banner" id="phaseBanner"></div>
+    <div id="needExchangeBanner" style="display:none;position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:17;background:#2a0808;border:2px solid #ff4d4d;color:#ffb0b0;padding:10px 22px;border-radius:10px;font-size:15px;font-weight:bold;text-align:center;max-width:80%;"></div>
+    <div class="judge-box" id="judgeBox"><div id="judgeRows"></div></div>
     <div class="win-banner" id="winBanner"><div class="wb-title">ラウンド勝利</div><div class="wb-pot">獲得ポット <span id="wbAmount">0</span></div></div>
     <div class="action-turn-banner" id="actionTurnBanner">Action</div>
     <div class="round-box">残りラウンド<br><span class="val">-</span></div>
@@ -382,7 +423,7 @@
       <div class="log-title">ゲームログ</div>
     </div>
 
-    <div class="pot-display" id="potDisplay"><span class="lbl">POT</span><span class="amt" id="potAmount">0</span></div>
+    <div class="pot-display" id="potDisplay"><span class="lbl">POT</span><span class="amt" id="potAmount">0</span><div class="pot-chips" id="potChips"></div><div class="pot-layers" id="potLayers"></div></div>
     <div class="community-area">
       <div class="used-box">使用済</div>
       <div class="community-cards">
@@ -401,7 +442,7 @@
       <div class="hand-card face-down" id="myCard2"></div>
     </div>
 
-    <div class="self-panel">
+    <div class="self-panel"><img class="dead-emblem" id="selfDeadEmblem" src="assets/dead-emblem.webp" alt="" style="display:none;">
       <div class="position-badge" id="selfPositionBadge" style="display:none;">BTN</div>
       <div class="name" id="selfName">プレイヤー1(自分)</div>
       <div class="row">
@@ -459,36 +500,12 @@
     <div class="drawer-overlay" id="drawerOverlay" onclick="closeExchange()"></div>
     <div class="exchange-drawer" id="exchangeDrawer">
       <div class="drawer-close" onclick="closeExchange()">戻る</div>
-      <div class="drawer-note">全体図<br>パーツの残を確認<br>(換金済みの部位は黒く表示)</div>
+      <div class="drawer-note">全体図<br>パーツの残を確認<br>(換金済みの部位は白っぽく表示)</div>
       <div class="drawer-figure">
-        <svg viewBox="0 0 200 300" xmlns="http://www.w3.org/2000/svg">
-          <line x1="88" y1="170" x2="82" y2="270" class="drawer-base-line" stroke-width="16" stroke-linecap="round"/>
-          <line x1="112" y1="170" x2="118" y2="270" class="drawer-base-line" stroke-width="16" stroke-linecap="round"/>
-          <rect x="62" y="78" width="76" height="96" rx="22" class="drawer-base-fill"/>
-          <line id="d_armLeft" x1="64" y1="90" x2="32" y2="172" class="drawer-part-line" stroke-width="15" stroke-linecap="round"/>
-          <line id="d_armRight" x1="136" y1="90" x2="168" y2="172" class="drawer-part-line" stroke-width="15" stroke-linecap="round"/>
-          <circle cx="32" cy="176" r="10" class="drawer-base-fill"/>
-          <circle cx="168" cy="176" r="10" class="drawer-base-fill"/>
-          <line id="d_fingerL1" x1="32" y1="176" x2="14" y2="163" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <line id="d_fingerL2" x1="32" y1="176" x2="9"  y2="172" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <line id="d_fingerL3" x1="32" y1="176" x2="9"  y2="182" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <line id="d_fingerL4" x1="32" y1="176" x2="13" y2="191" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <line id="d_fingerL5" x1="32" y1="176" x2="19" y2="197" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <line id="d_fingerR1" x1="168" y1="176" x2="186" y2="163" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <line id="d_fingerR2" x1="168" y1="176" x2="191" y2="172" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <line id="d_fingerR3" x1="168" y1="176" x2="191" y2="182" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <line id="d_fingerR4" x1="168" y1="176" x2="187" y2="191" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <line id="d_fingerR5" x1="168" y1="176" x2="181" y2="197" class="drawer-part-line" stroke-width="4" stroke-linecap="round"/>
-          <circle cx="100" cy="42" r="27" class="drawer-base-fill"/>
-          <ellipse id="d_earLeft"  cx="71" cy="44" rx="6" ry="10" class="drawer-part"/>
-          <ellipse id="d_earRight" cx="129" cy="44" rx="6" ry="10" class="drawer-part"/>
-          <circle id="d_eyeLeft"  cx="90" cy="38" r="4.5" class="drawer-part"/>
-          <circle id="d_eyeRight" cx="110" cy="38" r="4.5" class="drawer-part"/>
-          <rect id="d_teeth" x="87" y="55" width="26" height="8" rx="2" class="drawer-part"/>
-          <ellipse id="d_lungLeft"  cx="83" cy="112" rx="13" ry="20" class="drawer-part"/>
-          <ellipse id="d_lungRight" cx="117" cy="112" rx="13" ry="20" class="drawer-part"/>
-          <circle id="d_heart" cx="100" cy="118" r="9" class="drawer-part"/>
-        </svg>
+        <div class="body-monitor">
+          <img class="bm-frame" src="assets/body/frame.webp" alt="" draggable="false">
+          <div class="bm-screen"><canvas id="bodyCanvas" width="700" height="1050"></canvas></div>
+        </div>
       </div>
       <div class="drawer-select-row">
         <select id="drawerPartSelect" onchange="highlightDrawerPart()">
@@ -507,7 +524,7 @@
         </select>
         <button class="drawer-exchange-btn" id="drawerExchangeBtn" onclick="doDrawerExchange()">換金</button>
       </div>
-      <div class="drawer-legend">グレー=未換金 / 黒=換金済み(不可逆)</div>
+      <div class="drawer-legend">赤=未換金 / グレーがかった白=換金済み(不可逆)</div>
     </div>
   </div>
 
@@ -947,18 +964,27 @@
           const used = i < r.pulls;
           chambers += '<span style="display:inline-block;width:34px;height:34px;line-height:34px;margin:0 4px;border-radius:50%;border:2px solid ' + (used ? '#4ade80' : '#888') + ';color:' + (used ? '#4ade80' : '#555') + ';font-size:11px;text-align:center;">' + (used ? 'セーフ' : '?') + '</span>';
         }
+        const target = parts.length >= 5 ? 2 : 1;
+        const elim = Array.from(r.eliminated);
+        h += '<div style="text-align:center;font-size:12px;color:#999;margin-bottom:6px;">' + r.roundNo + '巡目 / ' + (target === 1 ? '最後の1人が総取り' : '最後の2人で山分け') + '</div>';
         h += '<div style="text-align:center;margin:4px 0 10px;">' + chambers + '</div>';
+        h += '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px;">' + parts.map(function (id) {
+          const out = elim.indexOf(id) !== -1;
+          const turn = id === r.turnPlayerId;
+          return '<span style="padding:3px 10px;border-radius:12px;font-size:12px;border:1px solid ' + (turn ? '#ffd24d' : out ? '#552' : '#666') + ';color:' + (out ? '#666' : turn ? '#ffd24d' : '#ddd') + ';' + (out ? 'text-decoration:line-through;' : '') + '">' + pName(id) + (out ? ' 💀' : '') + '</span>';
+        }).join('') + '</div>';
         h += '<div style="text-align:center;font-size:18px;color:#ffd24d;">' + (myTurn ? 'あなたの番' : pName(r.turnPlayerId) + 'の番') + ' <span style="font-size:24px;font-weight:bold;color:' + (r.turnLeft <= 5 ? '#ff5a5a' : '#4ade80') + ';">' + r.turnLeft + '</span></div>';
         h += '<div style="text-align:center;min-height:28px;font-size:20px;font-weight:bold;color:#e0e0e0;">' + rouletteFlash + '</div>';
         h += '<div style="text-align:center;">' + rBtn('🔫 引き金を引く', "room.send('roulettePull')", { disabled: !myTurn, bg: '#b91c1c' }) + '</div>';
-        h += '<div style="font-size:11px;color:#999;margin-top:8px;text-align:center;">弾は6発のうち1発。時間切れは自動で引かれます</div>';
+        h += '<div style="font-size:11px;color:#999;margin-top:8px;text-align:center;">弾は6発のうち1発。被弾した人は脱落し、弾を込め直して続行。時間切れは自動で引かれます</div>';
       } else if (r.phase === 'result') {
-        h += '<div style="text-align:center;font-size:30px;font-weight:bold;color:#ff4d4d;letter-spacing:4px;">BANG!</div>';
-        h += '<div style="text-align:center;font-size:16px;margin:6px 0;">' + pName(r.loserId) + ' が被弾</div>';
+        const winners = Array.from(r.winners);
+        h += '<div style="text-align:center;font-size:26px;font-weight:bold;color:#ffd24d;letter-spacing:4px;">決着!</div>';
+        h += '<div style="text-align:center;font-size:14px;margin:4px 0 8px;color:#999;">' + (winners.length === 1 ? '総取り' : '山分け') + '</div>';
         parts.forEach(function (id) {
-          const lost = id === r.loserId;
-          h += '<div style="display:flex;justify-content:space-between;padding:5px 10px;margin-bottom:4px;border-radius:6px;background:#1a1010;"><span>' + pName(id) + '</span><span style="font-weight:bold;color:' + (lost ? '#ff6b6b' : '#4ade80') + ';">' +
-            (lost ? '次回の初期チップ -' + (r.payoutEach * (parts.length - 1)) : '次回の初期チップ +' + r.payoutEach) + '</span></div>';
+          const won = winners.indexOf(id) !== -1;
+          h += '<div style="display:flex;justify-content:space-between;padding:5px 10px;margin-bottom:4px;border-radius:6px;background:#1a1010;"><span>' + (won ? '🏆 ' : '💀 ') + pName(id) + '</span><span style="font-weight:bold;color:' + (won ? '#4ade80' : '#ff6b6b') + ';">' +
+            '次回の初期チップ ' + (won ? '+' + r.winnerGain : '-' + r.bet) + '</span></div>';
         });
         if (isGM) h += '<div style="margin-top:8px;">' + rBtn('もう一度', 'startRoulette()', { bg: '#5a1010' }) + rBtn('ロビーに戻る', "room.send('rouletteClose')", { bg: '#222', color: '#666' }) + '</div>';
         else h += '<div style="color:#999;text-align:center;margin-top:8px;">GMの操作を待っています…</div>';
@@ -983,7 +1009,7 @@
         '<h4>換金できる部位(チップ / ストレス)</h4><ul><li>指:30 / 3(左右5本ずつ。失うほど手札を落とす・公開される)</li><li>歯:200 / 10(<b>以後のストレス上昇が2倍</b>)</li><li>耳(左右):70 / 10</li><li>肺(左右):150 / 25(<b>両方失うと死亡</b>)</li><li>目(左右):250 / 15</li><li>腕(左右):250 / 20(指5本も同時に失う。<b>チェック/コールしかできなくなる</b>)</li><li>心臓:750 / 0(<b>即死</b>)</li></ul>' +
         '<h4>ストレスと廃人</h4><p>ストレスが<b>100</b>に達すると<b>廃人</b>になり、ゲームに参加できなくなります。死亡・廃人になる換金は、実行前に確認が出ます。ジョーカーが配られるたびにストレス+5。</p>' +
         '<h4>ロストイン</h4><p>残った部位を<b>すべて</b>換金してオールインする捨て身の技(心臓除く)。宣言すると合計額が<b>赤札</b>として提示され、他の人は「赤札分を支払ってコール」「対抗ロストイン」「フォールド」から選びます。全員がフォールドなら不発。実行した人は<b>勝っても負けても死亡</b>。腕を失っていても宣言できます。</p>' +
-        '<h4>死亡・廃人でも</h4><p>その時点のチップ量で順位が決まるので、死んでも勝者になれることがあります。</p>'
+        '<h4>チップが0になったら</h4><p>ロストフルモードでは、チップが0になっても脱落しません。<b>換金画面が自動で開く</b>ので、部位を換金してチップを作ればゲームを続けられます。<b>他のプレイヤーは、その人の換金が終わるまで次のラウンドを待ちます。</b>制限時間内に換金しないと脱落。換金できる部位が残っていない場合も脱落です。</p><h4>死亡・廃人でも</h4><p>その時点のチップ量で順位が決まるので、死んでも勝者になれることがあります。</p>'
     };
     function showRulesTab(tab) {
       document.getElementById('rulesBody').innerHTML = RULES_HTML[tab];
@@ -1096,15 +1122,30 @@
       );
     }
 
+    // ユーザー提供のカード画像(assets/cards/{S,H,D,C}{A,2..10,J,Q,K}.webp)。読み込み失敗時はSVGに自動フォールバック
+    function cardImgHtml(code) {
+      let file;
+      if (isJokerCode(code)) { file = (code === 'JOKER2' ? 'JOKER2' : 'JOKER1') + '.webp'; }
+      else { const c = parseCard(code); file = c.suit.toUpperCase() + c.rank + '.webp'; }
+      return '<img class="card-img" src="assets/cards/' + file + '" alt="' + code + '" draggable="false" onerror="cardImgFallback(this,\'' + code + '\')">';
+    }
+    function cardImgFallback(img, code) {
+      const p = img.parentNode;
+      if (!p) return;
+      p.classList.remove('has-img');
+      p.style.background = '';
+      p.innerHTML = cardFaceSvg(code);
+    }
     function renderCardEl(el, code) {
       if (!el) return;
-      if (!code) { el.classList.add('face-down'); el.style.backgroundImage = ''; el.innerHTML = ''; return; }
+      if (!code) { el.classList.add('face-down'); el.classList.remove('has-img'); el.style.backgroundImage = ''; el.innerHTML = ''; return; }
       el.classList.remove('face-down');
       el.style.backgroundImage = 'none';
-      el.innerHTML = cardFaceSvg(code);
+      el.classList.add('has-img');
+      el.innerHTML = cardImgHtml(code);
     }
     function miniCardHtml(code) {
-      return '<div class="opponent-mini-card" style="background-image:none;">' + cardFaceSvg(code) + '</div>';
+      return '<div class="opponent-mini-card has-img" style="background-image:none;">' + cardImgHtml(code) + '</div>';
     }
     function faceDownMiniCardHtml() {
       return '<div class="opponent-mini-card face-down"></div>';
@@ -1175,7 +1216,26 @@
         showToast(actionErrorMessages[message.reason] || 'その操作はできません');
       });
 
+      room.onMessage('judgeStart', function (message) {
+        const box = document.getElementById('judgeBox');
+        const rows = document.getElementById('judgeRows');
+        rows.innerHTML = '';
+        box.classList.add('show');
+        clearTimeout(box._t);
+        const list = message.hands.slice().sort(function (a, b) { return b.rank - a.rank; }); // 弱い順
+        list.forEach(function (h, i) {
+          setTimeout(function () {
+            const d = document.createElement('div');
+            d.className = 'jb-row' + (h.rank === 1 ? ' win' : '');
+            d.textContent = h.name + ': ' + h.handName + (h.rank === 1 ? '  👑' : '');
+            rows.appendChild(d);
+          }, message.introMs + i * message.stepMs);
+        });
+      });
+
       room.onMessage('showdownResult', function (message) {
+        const jb = document.getElementById('judgeBox');
+        jb.classList.remove('show');
         const mine = message.results.find(function (r) { return r.playerId === room.sessionId && r.amountWon > 0; });
         if (mine) {
           const wb = document.getElementById('winBanner');
@@ -1213,6 +1273,27 @@
     let actionBannerTimer = null;
 
     /** 自分の番になった瞬間だけ、画面中央に「Action」を1秒間表示する */
+    let needExchangePrompted = false;
+    function renderNeedExchange(state) {
+      const box = document.getElementById('needExchangeBanner');
+      if (state.phase !== 'needExchange') {
+        box.style.display = 'none';
+        needExchangePrompted = false;
+        return;
+      }
+      const ids = Array.from(state.needExchange);
+      const mine = ids.indexOf(room.sessionId) !== -1;
+      const names = ids.map(function (id) { const p = state.players.get(id); return p ? escapeHtml(p.name) : ''; }).join('、');
+      box.style.display = 'block';
+      box.innerHTML = mine
+        ? '💀 チップが0になりました。部位を換金してゲームを続けましょう<br><span style="font-size:22px;color:#ffd24d;">' + state.timeLeft + '</span> 秒(時間切れで脱落)'
+        : names + ' のチップが0になりました。換金が終わるまで待機中…(' + state.timeLeft + '秒)';
+      // 自分が対象なら、換金画面を自動で開く
+      if (mine && !needExchangePrompted) {
+        needExchangePrompted = true;
+        openExchange();
+      }
+    }
     function renderTurnTimer(state) {
       const box = document.getElementById('turnTimer');
       const active = state.actionPlayerId && ['preflop', 'flop', 'turn', 'river'].indexOf(state.phase) !== -1;
@@ -1243,7 +1324,7 @@
 
     let lastPhase = null;
     let phaseBannerTimer = null;
-    const PHASE_LABELS = { preflop: 'プリフロップ', flop: 'フロップ', turn: 'ターン', river: 'リバー' };
+    const PHASE_LABELS = { preflop: 'プリフロップ', flop: 'フロップ', turn: 'ターン', river: 'リバー', judge: 'ジャッジ' };
 
     /** プリフロップ/フロップ/ターン/リバーに切り替わった瞬間、画面中央に2秒間表示する */
     let lastRoundShown = 0;
@@ -1286,6 +1367,7 @@
       checkPhaseBanner(state);
       checkActionTurnBanner(state);
       renderTurnTimer(state);
+      renderNeedExchange(state);
       renderOpponents(state);
       renderSelfPanel(state, me);
       renderCommunity(state);
@@ -1324,10 +1406,11 @@
           (p.positionLabel ? '<div class="position-badge">' + p.positionLabel + '</div>' : '') +
           '<div class="name">' + escapeHtml(p.name) + statusNote + '</div>' +
           '<div class="cards">' + cardsHtml + '</div>' +
-          '<div class="stat-line">チップ: ' + p.chips + '</div>' +
+          '<div class="stat-line"' + (p.chips < 0 ? ' style="color:#ff5a5a;"' : '') + '>チップ: ' + p.chips + '</div>' +
           '<div class="bet-chip' + (p.totalRoundBet > 0 ? ' active' : '') + (p.allIn ? ' allin' : '') + '"><span class="lbl">' +
-            (p.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + p.totalRoundBet + '</span></div>' +
-          '<div class="bet-sub">今回の賭け: ' + p.currentBet + '</div>';
+            (p.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + p.totalRoundBet + '</span>' + chipStackHtml(p.totalRoundBet, 14) + '</div>' +
+          '<div class="bet-sub">今回の賭け: ' + p.currentBet + '</div>' +
+          (p.isDead ? '<img class="dead-emblem" src="assets/dead-emblem.webp" alt="">' : '');
         area.appendChild(div);
       });
     }
@@ -1342,10 +1425,13 @@
       } else {
         badge.style.display = 'none';
       }
-      document.getElementById('selfChip').textContent = 'チップ: ' + me.chips;
+      document.getElementById('selfDeadEmblem').style.display = me.isDead ? '' : 'none';
+      const scEl = document.getElementById('selfChip');
+      scEl.textContent = 'チップ: ' + me.chips;
+      scEl.style.color = me.chips < 0 ? '#ff5a5a' : '';
       const sb = document.getElementById('selfBet');
       sb.className = 'bet-chip' + (me.totalRoundBet > 0 ? ' active' : '') + (me.allIn ? ' allin' : '');
-      sb.innerHTML = '<span class="lbl">' + (me.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + me.totalRoundBet + '</span>' +
+      sb.innerHTML = '<span class="lbl">' + (me.allIn ? 'オールイン' : 'BET') + '</span><span class="amt">' + me.totalRoundBet + '</span>' + chipStackHtml(me.totalRoundBet, 16) +
         '<span class="bet-sub" style="margin-left:8px;">今回の賭け: ' + me.currentBet + '</span>';
       if (me.revealedHoleCards.length === 2) {
         renderCardEl(document.getElementById('myCard1'), me.revealedHoleCards[0]);
@@ -1355,8 +1441,53 @@
       }
     }
 
+    /** 各プレイヤーの投入額から、メインポット/サイドポットを計算して表示する(サーバーの精算と同じ考え方) */
+    function renderPotLayers(state) {
+      const box = document.getElementById('potLayers');
+      const cs = [];
+      state.players.forEach(function (p) { if (p.totalRoundBet > 0) cs.push({ name: p.name, bet: p.totalRoundBet, folded: p.folded }); });
+      const levels = Array.from(new Set(cs.map(function (c) { return c.bet; }))).sort(function (a, b) { return a - b; });
+      const layers = [];
+      let prev = 0;
+      levels.forEach(function (lv) {
+        const contrib = cs.filter(function (c) { return c.bet >= lv; });
+        const amount = (lv - prev) * contrib.length;
+        const elig = contrib.filter(function (c) { return !c.folded; }).map(function (c) { return c.name; });
+        prev = lv;
+        if (amount <= 0 || elig.length === 0) return;
+        const last = layers[layers.length - 1];
+        if (last && last.elig.join('|') === elig.join('|')) last.amount += amount; // 取れる人が同じ層は1つにまとめる
+        else layers.push({ amount: amount, elig: elig });
+      });
+      if (layers.length < 2) { box.innerHTML = ''; return; }
+      box.innerHTML = layers.map(function (l, i) {
+        return (i === 0 ? 'メイン' : 'サイド' + i) + ' ' + l.amount + '(' + l.elig.map(escapeHtml).join('・') + ')';
+      }).join('<br>');
+    }
+
+    // ---------- チップ画像(白=1 / 赤=10 / 黒=100 / 金=1000) ----------
+    const CHIP_DENOMS = [[1000, 'gold'], [100, 'black'], [10, 'red'], [1, 'white']];
+    function chipStackHtml(amount, w) {
+      amount = Math.max(0, Math.floor(amount || 0));
+      if (amount <= 0) return '';
+      const h = Math.round(w * 0.84), step = Math.max(2, Math.round(w * 0.2));
+      let rest = amount, cols = '';
+      CHIP_DENOMS.forEach(function (d) {
+        let n = Math.floor(rest / d[0]); rest -= n * d[0];
+        if (d[0] === 1000) n = Math.min(n, 99);
+        if (n <= 0) return;
+        const show = Math.min(n, 6);
+        let imgs = '';
+        for (let i = 0; i < show; i++) imgs += '<img src="assets/chips/' + d[1] + '.webp" style="bottom:' + (i * step) + 'px;height:' + h + 'px;" alt="">';
+        cols += '<span class="chipcol" style="width:' + w + 'px;height:' + (h + (show - 1) * step) + 'px;" title="' + d[0] + ' x ' + n + '">' + imgs + '</span>';
+      });
+      return '<span class="chipstack">' + cols + '</span>';
+    }
+
     function renderCommunity(state) {
       document.getElementById('potAmount').textContent = state.pot;
+      document.getElementById('potChips').innerHTML = chipStackHtml(state.pot, 26);
+      renderPotLayers(state);
       const boxes = document.querySelectorAll('.community-card');
       for (let i = 0; i < boxes.length; i++) {
         renderCardEl(boxes[i], state.communityCards[i]);
@@ -1405,7 +1536,9 @@
         const raisePending = me.currentBet < state.currentBet;
         document.getElementById('btnCheck').disabled = !canAct || raisePending;
         document.getElementById('btnCall').disabled = !canAct || !raisePending;
-        document.getElementById('btnCall').textContent = (raisePending && state.currentBet - me.currentBet >= me.chips) ? 'オールイン' : 'コール';
+        const toCallNow = state.currentBet - me.currentBet;
+        const callLabel = (raisePending && toCallNow >= me.chips) ? 'オールイン' : 'コール';
+        document.getElementById('btnCall').textContent = callLabel;
         document.getElementById('btnRaise').disabled = !canAct || me.chips <= 0 || armRestricted;
         document.getElementById('btnFold').disabled = !canAct || armRestricted;
         document.getElementById('btnLostin').disabled = !canAct;
@@ -1611,28 +1744,107 @@
       return total;
     }
 
+    // ---------- 人体図(画像) ----------
+    // 座標は元画像(1024x1536)基準。capsule=[x1,y1,x2,y2,太さ] / ellipse=[cx,cy,rx,ry]
+    const BODY_SRC_W = 1024, BODY_SRC_H = 1536;
+    function mirrorShape(sh) {
+      if (sh.t === 'e') return { t: 'e', v: [BODY_SRC_W - sh.v[0], sh.v[1], sh.v[2], sh.v[3]] };
+      return { t: 'c', v: [BODY_SRC_W - sh.v[0], sh.v[1], BODY_SRC_W - sh.v[2], sh.v[3], sh.v[4]] };
+    }
+    const FINGER_L = [
+      { t: 'c', v: [196, 702, 136, 752, 22] },
+      { t: 'c', v: [178, 752, 157, 830, 22] },
+      { t: 'c', v: [192, 760, 180, 846, 22] },
+      { t: 'c', v: [210, 760, 199, 838, 22] },
+      { t: 'c', v: [226, 760, 218, 822, 20] }
+    ];
+    const BODY_REGIONS = {
+      d_eyeLeft:  [{ t: 'e', v: [486, 96, 21, 17] }],
+      d_eyeRight: [{ t: 'e', v: [540, 96, 21, 17] }],
+      d_earLeft:  [{ t: 'e', v: [451, 117, 14, 25] }],
+      d_earRight: [{ t: 'e', v: [572, 117, 14, 25] }],
+      d_teeth:    [{ t: 'e', v: [512, 150, 56, 15] }],
+      d_lungLeft: [{ t: 'e', v: [443, 380, 54, 102] }],
+      d_lungRight:[{ t: 'e', v: [598, 372, 42, 96] }],
+      d_heart:    [{ t: 'e', v: [541, 378, 46, 58] }],
+      d_armLeft:  [{ t: 'c', v: [352, 290, 300, 497, 50] }, { t: 'c', v: [300, 497, 212, 688, 46] }, { t: 'e', v: [208, 715, 42, 34] }].concat(FINGER_L),
+      d_armRight: [{ t: 'c', v: [672, 290, 724, 497, 50] }, { t: 'c', v: [724, 497, 812, 688, 46] }, { t: 'e', v: [816, 715, 42, 34] }].concat(FINGER_L.map(mirrorShape))
+    };
+    ['L', 'R'].forEach(function (side, si) {
+      FINGER_L.forEach(function (sh, i) {
+        BODY_REGIONS['d_finger' + side + (i + 1)] = [si === 0 ? sh : mirrorShape(sh)];
+      });
+    });
+    const bodyImgs = { red: new Image(), gray: new Image() };
+    let bodyImgsReady = 0;
+    const bodyLost = new Set();
+    let bodyHighlight = [];
+    bodyImgs.red.onload = bodyImgs.gray.onload = function () { bodyImgsReady++; redrawBody(); };
+    bodyImgs.red.src = 'assets/body/red.webp';
+    bodyImgs.gray.src = 'assets/body/gray.webp';
+
+    function bodyShapePath(ctx, sh, k) {
+      if (sh.t === 'e') {
+        ctx.moveTo((sh.v[0] + sh.v[2]) * k, sh.v[1] * k);
+        ctx.ellipse(sh.v[0] * k, sh.v[1] * k, sh.v[2] * k, sh.v[3] * k, 0, 0, Math.PI * 2);
+      } else {
+        // 太さ付きの線分(カプセル)を多角形で近似
+        const x1 = sh.v[0], y1 = sh.v[1], x2 = sh.v[2], y2 = sh.v[3], r = sh.v[4] / 2;
+        const ang = Math.atan2(y2 - y1, x2 - x1);
+        ctx.moveTo((x1 + Math.cos(ang + Math.PI / 2) * r) * k, (y1 + Math.sin(ang + Math.PI / 2) * r) * k);
+        ctx.arc(x2 * k, y2 * k, r * k, ang + Math.PI / 2, ang - Math.PI / 2, true);
+        ctx.arc(x1 * k, y1 * k, r * k, ang - Math.PI / 2, ang + Math.PI / 2, true);
+        ctx.closePath();
+      }
+    }
+    function redrawBody() {
+      const cv = document.getElementById('bodyCanvas');
+      if (!cv || bodyImgsReady < 2) return;
+      const ctx = cv.getContext('2d');
+      const k = cv.width / BODY_SRC_W;
+      ctx.clearRect(0, 0, cv.width, cv.height);
+      ctx.drawImage(bodyImgs.red, 0, 0, cv.width, cv.height);
+      // 換金済みの部位だけ、グレーがかった白の画像に差し替える
+      bodyLost.forEach(function (id) {
+        const shapes = BODY_REGIONS[id]; if (!shapes) return;
+        ctx.save();
+        ctx.beginPath();
+        shapes.forEach(function (sh) { bodyShapePath(ctx, sh, k); });
+        ctx.clip();
+        ctx.drawImage(bodyImgs.gray, 0, 0, cv.width, cv.height);
+        ctx.restore();
+      });
+      // 選択中の部位を赤く縁取り
+      bodyHighlight.forEach(function (id) {
+        if (bodyLost.has(id)) return;
+        const shapes = BODY_REGIONS[id]; if (!shapes) return;
+        ctx.save();
+        ctx.beginPath();
+        shapes.forEach(function (sh) { bodyShapePath(ctx, sh, k); });
+        ctx.strokeStyle = '#ff3030'; ctx.lineWidth = 3.5; ctx.shadowColor = '#ff3030'; ctx.shadowBlur = 12;
+        ctx.stroke();
+        ctx.restore();
+      });
+    }
+
     function setPartLost(id, lost) {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.classList.toggle('lost', !!lost);
-      if (lost) el.classList.remove('highlight');
+      if (lost) bodyLost.add(id); else bodyLost.delete(id);
+      redrawBody();
     }
 
     function clearDrawerHighlight() {
-      document.querySelectorAll('.drawer-part.highlight, .drawer-part-line.highlight').forEach(el => el.classList.remove('highlight'));
+      bodyHighlight = [];
     }
     function highlightDrawerPart() {
       clearDrawerHighlight();
       const key = document.getElementById('drawerPartSelect').value;
       const def = PART_DEFS[key];
-      if (!def) return;
-      const ids = def.part === 'finger'
-        ? (def.side === 'left' ? LEFT_FINGER_IDS : RIGHT_FINGER_IDS)
-        : (def.ids || []);
-      ids.forEach(function (id) {
-        const el = document.getElementById(id);
-        if (el && !el.classList.contains('lost')) el.classList.add('highlight');
-      });
+      if (def) {
+        bodyHighlight = def.part === 'finger'
+          ? (def.side === 'left' ? LEFT_FINGER_IDS : RIGHT_FINGER_IDS).slice()
+          : (def.part === 'arm' ? [def.side === 'left' ? 'd_armLeft' : 'd_armRight'] : (def.ids || []).slice());
+      }
+      redrawBody();
     }
 
     function renderBodyParts(me) {

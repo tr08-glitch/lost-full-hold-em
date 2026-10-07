@@ -65,7 +65,9 @@ export class PokerRoom extends Room<RoomState> {
     this.state.timeLimit = PokerRoom.clampTimeLimit(options.timeLimit ?? 30);
     // 残り秒数を表示用にstateへ反映(0.5秒ごと)
     this.clock.setInterval(() => {
-      const active = this.state.actionPlayerId !== "" && ["preflop", "flop", "turn", "river"].includes(this.state.phase);
+      const active =
+        (this.state.actionPlayerId !== "" && ["preflop", "flop", "turn", "river"].includes(this.state.phase)) ||
+        this.state.phase === "needExchange";
       const left = active ? Math.max(0, Math.ceil((this.actionDeadline - Date.now()) / 1000)) : 0;
       if (this.state.timeLeft !== left) this.state.timeLeft = left;
     }, 500);
@@ -232,6 +234,13 @@ export class PokerRoom extends Room<RoomState> {
     }
 
     if (this.state.phase === "gameEnd") return;
+    if (this.state.phase === "needExchange") {
+      // 換金待ちの間の離脱:換金待ち中の本人はそのまま脱落、それ以外は通常通り(次ラウンドで除外される)
+      if (player.chips <= 0) player.isBusted = true;
+      player.folded = true;
+      this.checkNeedExchangeDone();
+      return;
+    }
     if (!player.folded && !player.isDead && !player.isVegetative) {
       player.folded = true;
       player.lastAction = "fold";
@@ -302,11 +311,80 @@ export class PokerRoom extends Room<RoomState> {
     return fromIndex;
   }
 
+  /** まだ換金できる身体パーツが残っているか(心臓も含む) */
+  private hasExchangeableParts(p: PlayerState): boolean {
+    return (
+      p.fingersLostLeft < 5 || p.fingersLostRight < 5 || !p.teethLost ||
+      !p.earsLostLeft || !p.earsLostRight || !p.lungsLostLeft || !p.lungsLostRight ||
+      !p.eyesLostLeft || !p.eyesLostRight || !p.armsLostLeft || !p.armsLostRight || !p.heartLost
+    );
+  }
+
+  private needExchangeTimer: { clear: () => void } | null = null;
+
+  /** ロストフル:チップが尽きたプレイヤーがいれば、部位換金が済むまでラウンド開始を待つ(ゲームは終わらない) */
+  private enterNeedExchangeIfAny(): boolean {
+    if (this.state.mode !== "lostfull") return false;
+    const needy: string[] = [];
+    for (const id of this.state.seatOrder as string[]) {
+      const p = this.state.players.get(id);
+      if (p && !p.isDead && !p.isVegetative && !p.isBusted && !p.isSurrendered && p.chips <= 0) needy.push(id);
+    }
+    if (needy.length === 0) return false;
+    this.actionTimeout?.clear();
+    this.state.actionPlayerId = "";
+    this.state.needExchange.clear();
+    needy.forEach((id) => this.state.needExchange.push(id));
+    this.state.phase = "needExchange";
+    const ms = Math.max(30, this.state.timeLimit * 2) * 1000;
+    this.actionDeadline = Date.now() + ms;
+    this.state.timeLeft = Math.ceil(ms / 1000);
+    this.needExchangeTimer?.clear();
+    this.needExchangeTimer = this.clock.setTimeout(() => this.expireNeedExchange(), ms);
+    const names = needy.map((id) => this.state.players.get(id)?.name ?? "").join("、");
+    this.pushLog(`${names}のチップが0になりました。換金が終わるまで次のラウンドを待ちます`);
+    return true;
+  }
+
+  /** 換金が済んだ(または死亡・廃人になった)人を待ち行列から外し、全員済んだらラウンド開始 */
+  private checkNeedExchangeDone() {
+    if (this.state.phase !== "needExchange") return;
+    for (const id of [...(this.state.needExchange as string[])]) {
+      const p = this.state.players.get(id);
+      const i = (this.state.needExchange as string[]).indexOf(id);
+      if (!p || p.chips > 0 || p.isDead || p.isVegetative || p.isBusted || p.isSurrendered || !this.hasExchangeableParts(p)) {
+        if (i !== -1) this.state.needExchange.splice(i, 1);
+      }
+    }
+    if (this.state.needExchange.length === 0) {
+      this.needExchangeTimer?.clear();
+      this.needExchangeTimer = null;
+      this.startNewRound();
+    }
+  }
+
+  /** 制限時間内に換金しなかった人は脱落(バスト)扱いにして続行 */
+  private expireNeedExchange() {
+    if (this.state.phase !== "needExchange") return;
+    for (const id of [...(this.state.needExchange as string[])]) {
+      const p = this.state.players.get(id);
+      if (p && p.chips <= 0 && !p.isDead && !p.isVegetative) {
+        p.isBusted = true;
+        this.pushLog(`${p.name}は換金せず、チップが尽きたため脱落しました`);
+      }
+    }
+    this.state.needExchange.clear();
+    this.needExchangeTimer = null;
+    this.startNewRound();
+  }
+
   /** チップが0になったプレイヤーを「バスト」として以降のラウンドの進行から除外する */
   private markBustedPlayers() {
     for (const id of this.state.seatOrder) {
       const p = this.state.players.get(id);
       if (p && !p.isDead && !p.isVegetative && !p.isBusted && !p.isSurrendered && p.chips <= 0) {
+        // ロストフルモードでは、換金できる部位が残っていればバストにせず、換金して続行できる
+        if (this.state.mode === "lostfull" && this.hasExchangeableParts(p)) continue;
         p.isBusted = true;
         this.pushLog(`${p.name}はチップが尽きたため、以降のラウンドから除外されます`);
       }
@@ -332,8 +410,10 @@ export class PokerRoom extends Room<RoomState> {
     r.participants.clear();
     r.turnPlayerId = "";
     r.pulls = 0;
-    r.loserId = "";
-    r.payoutEach = 0;
+    r.eliminated.clear();
+    r.winners.clear();
+    r.roundNo = 0;
+    r.winnerGain = 0;
     r.turnLeft = 0;
   }
 
@@ -408,6 +488,9 @@ export class PokerRoom extends Room<RoomState> {
     order.forEach((id) => r.participants.push(id));
     this.rouletteBulletAt = Math.floor(Math.random() * 6);
     r.pulls = 0;
+    r.roundNo = 1;
+    r.eliminated.clear();
+    r.winners.clear();
     r.phase = "playing";
     this.rouletteSetTurn(order[0]!);
     this.pushLog("ロシアンルーレット開始!");
@@ -435,6 +518,18 @@ export class PokerRoom extends Room<RoomState> {
     this.rouletteShoot(client.sessionId);
   }
 
+  /** 生存者(参加者のうち、まだ脱落していない人。席順) */
+  private rouletteAlive(): string[] {
+    const r = this.state.roulette;
+    const out = r.eliminated as string[];
+    return (r.participants as string[]).filter((id) => !out.includes(id));
+  }
+
+  /** 最後に残る人数:参加2〜4人なら1人(総取り)、5人以上なら2人(山分け) */
+  private rouletteTargetCount(): number {
+    return this.state.roulette.participants.length >= 5 ? 2 : 1;
+  }
+
   private rouletteShoot(playerId: string) {
     const r = this.state.roulette;
     if (r.phase !== "playing" || r.turnPlayerId !== playerId) return;
@@ -442,30 +537,55 @@ export class PokerRoom extends Room<RoomState> {
     r.pulls++;
     this.broadcast("rouletteShot", { playerId, hit, pull: r.pulls });
     const name = this.state.players.get(playerId)?.name ?? "";
+    const parts = r.participants as string[];
+
+    // 次に引く人=席順で playerId の次の生存者
+    const nextAliveAfter = (fromId: string, alive: string[]): string => {
+      const start = parts.indexOf(fromId);
+      for (let i = 1; i <= parts.length; i++) {
+        const cand = parts[(start + i) % parts.length]!;
+        if (alive.includes(cand)) return cand;
+      }
+      return alive[0]!;
+    };
+
     if (!hit) {
       this.pushLog(`${name}は引き金を引いた…カチッ。セーフ`);
-      const order = r.participants as string[];
-      const next = order[(order.indexOf(playerId) + 1) % order.length]!;
-      this.rouletteSetTurn(next);
+      this.rouletteSetTurn(nextAliveAfter(playerId, this.rouletteAlive()));
       return;
     }
-    // 命中:掛け金を失い、生存者で山分け
+
+    // 被弾:脱落
     this.rouletteTimer?.clear();
     this.rouletteTicker?.clear();
-    const survivors = (r.participants as string[]).filter((id) => id !== playerId);
-    const each = Math.floor(r.bet / survivors.length);
-    const loser = this.state.players.get(playerId);
-    if (loser) loser.chipDelta -= each * survivors.length;
-    for (const id of survivors) {
-      const sp = this.state.players.get(id);
-      if (sp) sp.chipDelta += each;
+    r.eliminated.push(playerId);
+    const alive = this.rouletteAlive();
+    this.pushLog(`${name}が被弾!脱落(残り${alive.length}人)`);
+
+    if (alive.length > this.rouletteTargetCount()) {
+      // 人数が決まるまで繰り返す:弾を込め直して、残った人で続行
+      this.rouletteBulletAt = Math.floor(Math.random() * 6);
+      r.pulls = 0;
+      r.roundNo++;
+      this.rouletteSetTurn(nextAliveAfter(playerId, alive));
+      return;
     }
-    r.loserId = playerId;
-    r.payoutEach = each;
+
+    // 決着:全員の掛け金の合計を、生き残った人で山分け(端数切り捨て)
+    const pot = r.bet * parts.length;
+    const each = Math.floor(pot / alive.length);
+    for (const id of parts) {
+      const pl = this.state.players.get(id);
+      if (!pl) continue;
+      if (alive.includes(id)) pl.chipDelta += each - r.bet;
+      else pl.chipDelta -= r.bet;
+    }
+    alive.forEach((id) => r.winners.push(id));
+    r.winnerGain = each - r.bet;
     r.turnPlayerId = "";
     r.turnLeft = 0;
     r.phase = "result";
-    this.pushLog(`${name}が被弾!次のゲームの初期チップ -${each * survivors.length}(生存者は+${each})`);
+    this.pushLog(`ロシアンルーレット決着!生存者は次のゲームの初期チップ +${each - r.bet}、脱落者は -${r.bet}`);
   }
 
   private rouletteClose(client: Client) {
@@ -542,6 +662,8 @@ export class PokerRoom extends Room<RoomState> {
 
   /** 結果発表後の再戦/ロビー復帰用:全員のチップ・身体・ストレス等を初期状態に戻す(切断中の人は除外) */
   private resetForNewGame() {
+    this.runoutTimer?.clear();
+    this.runoutTimer = null;
     for (const id of [...this.state.seatOrder] as string[]) {
       const p = this.state.players.get(id);
       if (!p) continue;
@@ -570,6 +692,9 @@ export class PokerRoom extends Room<RoomState> {
       p.isBusted = false; p.isSurrendered = false; p.surrenderOrder = 0;
     }
     this.surrenderCounter = 0;
+    this.needExchangeTimer?.clear();
+    this.needExchangeTimer = null;
+    this.state.needExchange.clear();
     this.holeCards.clear();
     this.raiseRestricted.clear();
     this.state.communityCards.clear();
@@ -625,7 +750,11 @@ export class PokerRoom extends Room<RoomState> {
   // ---------- ラウンド開始 ----------
 
   private startNewRound() {
+    this.runoutTimer?.clear();
+    this.runoutTimer = null;
     this.markBustedPlayers();
+    this.state.needExchange.clear();
+    if (this.enterNeedExchangeIfAny()) return;
     const order = this.activeSeatOrder();
     this.handParticipants = order; // このハンドの参加者を確定・スナップショット
     if (order.length < 2) {
@@ -776,6 +905,11 @@ export class PokerRoom extends Room<RoomState> {
     this.surrenderCounter++;
     player.surrenderOrder = this.surrenderCounter;
     this.pushLog(`${player.name}が降参しました`);
+
+    if (this.state.phase === "needExchange") {
+      this.checkNeedExchangeDone();
+      return;
+    }
 
     if (!player.folded) {
       player.folded = true;
@@ -950,6 +1084,11 @@ export class PokerRoom extends Room<RoomState> {
     this.pushLog(`${player.name}が${label}を換金した(+${chipGain}チップ)`);
     if (causesDeath) this.pushLog(`${player.name}は死亡した`);
     if (newlyVegetative) this.pushLog(`${player.name}は廃人となった`);
+
+    if (this.state.phase === "needExchange") {
+      this.checkNeedExchangeDone();
+      return;
+    }
 
     if ((causesDeath || newlyVegetative) && this.state.gameStarted && !player.folded) {
       player.folded = true;
@@ -1420,12 +1559,33 @@ export class PokerRoom extends Room<RoomState> {
     }
   }
 
-  /** 残り全員オールイン等でベット不要な場合、リバーまで一気にカードを公開してからショーダウン */
+  private runoutTimer: any = null;
+
+  /** 残り全員オールイン等でベット不要な場合、手札を公開し、コミュニティカードを段階的に開いてからショーダウン */
   private autoRunToShowdown() {
-    while (this.state.phase !== "river") {
-      this.dealNextStreetCards();
+    this.actionTimeout?.clear();
+    this.runoutTimer?.clear();
+    this.state.actionPlayerId = "";
+    // 緊張感のため、残っている全員の手札を先に公開
+    for (const id of this.handParticipants) {
+      const p = this.state.players.get(id)!;
+      if (!p.folded && p.revealedHoleCards.length === 0) {
+        const cards = this.holeCards.get(id);
+        if (cards) p.revealedHoleCards.push(...cards);
+      }
     }
-    this.showdown();
+    const STEP_MS = 3000;
+    const step = () => {
+      this.runoutTimer = null;
+      if (this.state.phase === "river") {
+        this.showdown();
+        return;
+      }
+      if (!["preflop", "flop", "turn"].includes(this.state.phase)) return;
+      this.dealNextStreetCards();
+      this.runoutTimer = this.clock.setTimeout(step, STEP_MS);
+    };
+    this.runoutTimer = this.clock.setTimeout(step, 2000);
   }
 
   private moveToNextStreetOrShowdown() {
@@ -1475,7 +1635,7 @@ export class PokerRoom extends Room<RoomState> {
 
   private showdown() {
     this.actionTimeout?.clear();
-    this.state.phase = "showdown";
+    this.state.phase = "judge";
     const remaining = this.handParticipants.filter((id) => !this.state.players.get(id)!.folded);
     const order = this.showdownOrder(remaining);
 
@@ -1484,9 +1644,42 @@ export class PokerRoom extends Room<RoomState> {
     for (const id of order) {
       const p = this.state.players.get(id)!;
       const cards = this.holeCards.get(id)!;
-      p.revealedHoleCards.push(...cards);
+      if (p.revealedHoleCards.length === 0) p.revealedHoleCards.push(...cards);
     }
 
+    // ---- ジャッジのターン: 全員の役を照らし合わせて順位付けし、演出してから精算する ----
+    const community0 = Array.from(this.state.communityCards) as string[];
+    const rankOf: Record<string, number> = {};
+    let pool = handInfos.slice();
+    let rank = 1;
+    while (pool.length > 0) {
+      const top = determineWinners(pool, community0);
+      for (const id of top) rankOf[id] = rank;
+      pool = pool.filter((h) => !top.includes(h.playerId));
+      rank++;
+    }
+    const judgeHands = order.map((id) => ({
+      playerId: id,
+      name: this.state.players.get(id)!.name,
+      handName: evaluateHand(this.holeCards.get(id)!, community0).name,
+      rank: rankOf[id],
+    }));
+    // 弱い順に1人ずつ発表 → 最後に勝者
+    const judgeSteps = judgeHands.length;
+    const JUDGE_STEP_MS = 1500;
+    const JUDGE_INTRO_MS = 2200;
+    const judgeMs = JUDGE_INTRO_MS + judgeSteps * JUDGE_STEP_MS + 1500;
+    this.broadcast("judgeStart", { hands: judgeHands, stepMs: JUDGE_STEP_MS, introMs: JUDGE_INTRO_MS });
+    this.pushLog("ジャッジ開始");
+    this.runoutTimer?.clear();
+    this.runoutTimer = this.clock.setTimeout(() => {
+      this.runoutTimer = null;
+      this.settleShowdown(order, handInfos);
+    }, judgeMs);
+  }
+
+  private settleShowdown(order: string[], handInfos: { playerId: string; holeCards: string[] }[]) {
+    if (this.state.phase !== "judge") return;
     const contributions: PotContribution[] = this.handParticipants.map((id) => {
       const p = this.state.players.get(id)!;
       return { playerId: id, totalRoundBet: p.totalRoundBet, folded: p.folded };
