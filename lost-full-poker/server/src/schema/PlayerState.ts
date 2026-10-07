@@ -63,4 +63,5 @@ export class PlayerState extends Schema {
 
   // 「降参」ボタンによる自発的な離脱(以降のラウンドから除外、観戦扱い)
   @type("boolean") isSurrendered: boolean = false;
+  @type("number") surrenderOrder: number = 0; // 降参した順(1始まり、未降参は0)。結果発表で降参者を最下位に並べる用
 }

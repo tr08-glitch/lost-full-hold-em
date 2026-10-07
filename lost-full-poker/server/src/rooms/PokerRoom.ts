@@ -51,6 +51,7 @@ export class PokerRoom extends Room<RoomState> {
   // 「次のハンドに参加できるか」を表すため、ハンド中に変化すると投入済みチップの
   // 集計から抜け落ちてしまう)。
   private handParticipants: string[] = [];
+  private surrenderCounter = 0;
 
   async onCreate(options: RoomOptions) {
     this.setState(new RoomState());
@@ -365,8 +366,9 @@ export class PokerRoom extends Room<RoomState> {
       p.eyesLostLeft = false; p.eyesLostRight = false;
       p.armsLostLeft = false; p.armsLostRight = false; p.heartLost = false;
       p.publicCardLeft = ""; p.publicCardRight = "";
-      p.isBusted = false; p.isSurrendered = false;
+      p.isBusted = false; p.isSurrendered = false; p.surrenderOrder = 0;
     }
+    this.surrenderCounter = 0;
     this.holeCards.clear();
     this.raiseRestricted.clear();
     this.state.communityCards.clear();
@@ -569,6 +571,8 @@ export class PokerRoom extends Room<RoomState> {
     }
 
     player.isSurrendered = true;
+    this.surrenderCounter++;
+    player.surrenderOrder = this.surrenderCounter;
     this.pushLog(`${player.name}が降参しました`);
 
     if (!player.folded) {

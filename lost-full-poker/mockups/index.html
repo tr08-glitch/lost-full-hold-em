@@ -641,14 +641,19 @@
       const st = room.state;
       const ps = [];
       st.players.forEach(function (p) { ps.push(p); });
-      ps.sort(function (a, b) { return b.chips - a.chips; });
+      // 降参者は常に最下位。複数人いる場合は、先に降参した人ほど下(後に降参した人ほど上)
+      ps.sort(function (a, b) {
+        if (a.isSurrendered !== b.isSurrendered) return a.isSurrendered ? 1 : -1;
+        if (a.isSurrendered) return b.surrenderOrder - a.surrenderOrder;
+        return b.chips - a.chips;
+      });
       let rank = 0, prev = null;
       const medals = ['🥇', '🥈', '🥉'];
       const list = document.getElementById('resultList');
       list.innerHTML = '';
       ps.forEach(function (p, i) {
-        if (prev === null || p.chips !== prev) rank = i + 1;
-        prev = p.chips;
+        if (p.isSurrendered || prev === null || p.chips !== prev) rank = i + 1;
+        prev = p.isSurrendered ? null : p.chips;
         const status = p.isDead ? '死亡' : p.isVegetative ? '廃人' : p.isSurrendered ? '降参' : p.isBusted ? 'チップ切れ' : '';
         const row = document.createElement('div');
         row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:8px;background:#141414;border:1px solid ' + (rank === 1 ? '#e0b040' : '#333') + ';' + (p.id === room.sessionId ? 'box-shadow:0 0 0 1px #b91c1c;' : '');
@@ -1041,7 +1046,8 @@
     }
 
     function renderSelfPanel(state, me) {
-      document.getElementById('selfName').textContent = me.name + '(自分)';
+      document.getElementById('selfName').textContent = me.name + '(自分)' + (me.isSurrendered ? ' 観戦中' : '');
+      document.querySelector('.top-right-actions .surrender').style.display = me.isSurrendered ? 'none' : '';
       const badge = document.getElementById('selfPositionBadge');
       if (me.positionLabel) {
         badge.textContent = me.positionLabel;
@@ -1182,17 +1188,7 @@
       } else if (pendingAction === 'lostin' || pendingAction === 'lostin_counter') {
         room.send('action', { type: 'lostin' });
       } else if (pendingAction === 'surrender') {
-        room.send('surrender');
-        room.send('leaveIntentional');
-        navigatedAway = true;
-        room = null;
-        tableInitialized = false;
-      myHoleCards = null;
-        chatMessages = [];
-        document.getElementById('lobbyChatMessages').innerHTML = '';
-        document.getElementById('chatFlow').innerHTML = '';
-        document.getElementById('chatHistoryMessages').innerHTML = '';
-        showScreen('screen-title');
+        room.send('surrender'); // 退室はせず、観戦モードで卓に残る
       } else if (pendingAction === 'leave') {
         leaveRoom();
       } else if (pendingAction === 'exchange_fatal' && pendingExchangePayload) {
