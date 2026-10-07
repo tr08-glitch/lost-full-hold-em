@@ -248,9 +248,12 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 - チャット機能はサーバー未実装(ルームロビー画面のチャットUIは見た目のみ)
 
 
-## ミニゲーム:ロシアンルーレット(ロビー専用)
-- state: `roulette { phase: idle|recruiting|playing|result, bet, participants[], turnPlayerId, pulls, loserId, payoutEach, turnLeft }`、`players[].chipDelta`(次のゲームの初期チップ加減額。ゲーム開始/ニューゲームで適用され0に戻る)
-- client→server: `rouletteOpen {bet}`(GM。1〜BB)/ `rouletteJoin`(参加・辞退のトグル)/ `rouletteBegin`(GM、2人以上)/ `roulettePull`(手番の人)/ `rouletteClose`(GM。中止または結果を閉じる)
-- server→client: `rouletteShot {playerId, hit, pull}`
-- 手番は15秒で自動的に引かれる。被弾した人は脱落し、弾を込め直して続行。参加2〜4人は最後の1人が総取り、5人以上は最後の2人で山分け(端数切り捨て)。state: eliminated[] / winners[] / roundNo / winnerGain。
-- 追加: `rouletteSetBet {bet}`(GM、募集中のみ掛け金を変更。払えなくなった参加者は自動で外れる)
+## ミニゲーム:インディアンジャッジ(ロビー専用)
+- state: `ij { phase: idle|recruiting|playing|result, bet, participants[], step: pick|reveal, fieldNum, pickedIds[], winners[], winnerGain, turnLeft }`
+- client→server: `ijOpen {bet}`(GM。1〜BB)/ `ijSetBet {bet}`(GM、募集中のみ)/ `ijJoin`(参加・辞退のトグル)/ `ijBegin`(GM、2人以上)/ `ijPick {pick:"high"|"low"}`(25秒以内に何度でも変更可)/ `ijInfoReq`(自分の公開情報の再送要求)/ `ijClose`(GM。中止・結果画面を閉じる)
+- server→client: `ijInfo {field, seen:[{who:playerId|"grave", num}], total}`(本人にだけ)/ `ijReveal {field, nums{id:number}, picks{id:high|low}, grave[], winners[]}`
+- ルール: 数字カードは1〜(人数+3)。場1枚・各プレイヤー1枚(自分のは見えない)・墓地2枚。各プレイヤーには「他プレイヤー+墓地」のうち半数(切り捨て)がランダムに公開される。自分の数字が場より大きいか小さいかを予想し、的中者全員で掛け金を山分け(全員外れなら増減なし)。掛け金は次のゲームの初期チップから(`chipDelta`)。
+
+## 観戦者
+- ゲーム開始後に入室した人は `players[id].isSpectator = true`(座席なし・手番なし・チップ0)。ニューゲーム/ロビー復帰時に空き席があれば通常プレイヤーに昇格。
+- 設定 `spectatorSeeHands`(GM、デフォルトfalse)がtrueのとき、観戦者に `spectatorHands { hands: {playerId: [card, card]} }` が各ラウンド開始時と入室時に送られる。

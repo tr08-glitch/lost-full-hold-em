@@ -28,7 +28,7 @@ type ActionMessage =
  * ロストフルモード固有の要素(身体パーツ換金・ストレス・ロストイン)は次段階で追加する。
  */
 export class PokerRoom extends Room<RoomState> {
-  maxClients = 6;
+  maxClients = 16; // 対戦席は最大6人(onJoinで制限)。それ以外は観戦者
 
   private deck = new Deck();
   // ホールカードの中身はスキーマに乗せず、サーバー内部だけで保持する(本人にのみ個別送信)
@@ -98,12 +98,13 @@ export class PokerRoom extends Room<RoomState> {
     });
     this.onMessage("newGame", (client) => this.handleNewGame(client));
     this.onMessage("returnToLobby", (client) => this.handleReturnToLobby(client));
-    this.onMessage("rouletteOpen", (client, m: { bet?: number }) => this.rouletteOpen(client, m));
-    this.onMessage("rouletteSetBet", (client, m: { bet?: number }) => this.rouletteSetBet(client, m));
-    this.onMessage("rouletteJoin", (client) => this.rouletteJoin(client));
-    this.onMessage("rouletteBegin", (client) => this.rouletteBegin(client));
-    this.onMessage("roulettePull", (client) => this.roulettePull(client));
-    this.onMessage("rouletteClose", (client) => this.rouletteClose(client));
+    this.onMessage("ijOpen", (client, m: { bet?: number }) => this.ijOpen(client, m));
+    this.onMessage("ijSetBet", (client, m: { bet?: number }) => this.ijSetBet(client, m));
+    this.onMessage("ijJoin", (client) => this.ijJoin(client));
+    this.onMessage("ijBegin", (client) => this.ijBegin(client));
+    this.onMessage("ijPick", (client, m: { pick?: string }) => this.ijPick(client, m));
+    this.onMessage("ijClose", (client) => this.ijClose(client));
+    this.onMessage("ijInfoReq", (client) => this.ijSendInfo(client));
     this.onMessage("kick", (client, message: { targetId?: string }) => this.handleKick(client, message));
     this.onMessage("chat", (client, message: { target?: string; text?: string }) => this.handleChat(client, message));
     console.log(`[LFH] onCreate roomId=${this.roomId}`);
@@ -127,9 +128,9 @@ export class PokerRoom extends Room<RoomState> {
 
   onJoin(client: Client, options: { name?: string }) {
     console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onJoin sessionId=${client.sessionId} name=${options?.name}`);
-    if (this.state.gameStarted) {
-      // ゲーム開始後の途中参加は現段階では未対応(observerとしての入室などは今後の課題)
-      throw new Error("既にゲームが開始されているため参加できません");
+    const spectating = this.state.gameStarted; // ゲーム開始後の入室は観戦者
+    if (!spectating && this.state.seatOrder.length >= 6) {
+      throw new Error("room_full");
     }
 
     const player = new PlayerState();
@@ -147,9 +148,20 @@ export class PokerRoom extends Room<RoomState> {
       throw new Error("duplicate_name");
     }
     player.name = finalName;
+    if (spectating) {
+      player.isSpectator = true;
+      player.chips = 0;
+      player.seatIndex = -1;
+      player.isGM = false;
+      player.folded = true;
+      this.state.players.set(client.sessionId, player);
+      this.pushLog(`${player.name} が観戦者として入室しました`);
+      this.sendSpectatorHands(client.sessionId);
+      return;
+    }
     player.chips = this.state.startingChips;
-    player.seatIndex = this.state.players.size;
-    player.isGM = this.state.players.size === 0; // 最初の入室者がGM(部屋作成者)
+    player.seatIndex = this.state.seatOrder.length;
+    player.isGM = this.state.seatOrder.length === 0; // 最初の入室者がGM(部屋作成者)
 
     this.state.players.set(client.sessionId, player);
     this.state.seatOrder.push(client.sessionId);
@@ -220,11 +232,17 @@ export class PokerRoom extends Room<RoomState> {
     const player = this.state.players.get(sessionId);
     if (!player) return;
 
+    if (player.isSpectator) {
+      this.state.players.delete(sessionId);
+      this.pushLog(`${player.name}(観戦者)が退室しました`);
+      return;
+    }
+
     if (!this.state.gameStarted) {
       // ロビー中の離脱はそのまま座席から取り除く(ミニゲーム進行中なら中止)
-      if (this.state.roulette.phase === "recruiting" || this.state.roulette.phase === "playing") {
-        this.rouletteReset();
-        this.pushLog("参加者が退室したためロシアンルーレットを中止しました");
+      if (this.state.ij.phase === "recruiting" || this.state.ij.phase === "playing") {
+        this.ijReset();
+        this.pushLog("参加者が退室したためインディアンジャッジを中止しました");
       }
       this.state.players.delete(sessionId);
       const idx = this.state.seatOrder.indexOf(sessionId);
@@ -392,27 +410,37 @@ export class PokerRoom extends Room<RoomState> {
   }
 
 
-  // ---------- ミニゲーム:ロシアンルーレット(ロビー専用) ----------
-  // 掛け金は「次のゲームの初期チップ」から支払う。弾に当たった1人が掛け金を失い、生存者で山分けする。
-  private rouletteBulletAt = 0; // 実弾が出る回(0始まり、サーバー内部のみ保持)
-  private rouletteTimer: { clear: () => void } | null = null;
-  private rouletteTicker: { clear: () => void } | null = null;
-  private static readonly ROULETTE_TURN_SEC = 15;
+  // ---------- ミニゲーム:インディアンジャッジ(ロビー専用) ----------
+  // 掛け金は「次のゲームの初期チップ」から支払う。
+  // 数字カードは 1〜(人数+3)。場に1枚、各プレイヤーに1枚(自分のは見えない)、残り2枚は墓地(使われない)。
+  // 各プレイヤーには「他プレイヤーの手札+墓地」のうち半数(切り捨て)がランダムに公開される。
+  // それを踏まえて自分のカードが場より大きいか小さいかを予想し、的中者全員で全員の掛け金を山分け。
+  private ijPicks = new Map<string, "high" | "low">();
+  private ijSeen = new Map<string, { who: string; num: number }[]>(); // 各プレイヤーに公開された情報(本人にだけ送る)
+  private ijNums = new Map<string, number>(); // 各プレイヤーの数字(非公開)
+  private ijGrave: number[] = [];
+  private ijTimer: { clear: () => void } | null = null;
+  private ijTicker: { clear: () => void } | null = null;
+  private static readonly IJ_PICK_SEC = 25;
+  private static readonly IJ_REVEAL_MS = 6000;
 
-  private rouletteReset() {
-    this.rouletteTimer?.clear();
-    this.rouletteTicker?.clear();
-    this.rouletteTimer = null;
-    this.rouletteTicker = null;
-    const r = this.state.roulette;
+  private ijReset() {
+    this.ijTimer?.clear();
+    this.ijTicker?.clear();
+    this.ijTimer = null;
+    this.ijTicker = null;
+    this.ijPicks.clear();
+    this.ijSeen.clear();
+    this.ijNums.clear();
+    this.ijGrave = [];
+    const r = this.state.ij;
     r.phase = "idle";
     r.bet = 0;
     r.participants.clear();
-    r.turnPlayerId = "";
-    r.pulls = 0;
-    r.eliminated.clear();
+    r.step = "pick";
+    r.fieldNum = 0;
+    r.pickedIds.clear();
     r.winners.clear();
-    r.roundNo = 0;
     r.winnerGain = 0;
     r.turnLeft = 0;
   }
@@ -427,30 +455,30 @@ export class PokerRoom extends Room<RoomState> {
     }
   }
 
-  private rouletteMaxBet(): number {
+  private ijMaxBet(): number {
     return Math.max(1, this.state.bigBlind); // 「少量」:BBと同じ額まで
   }
 
-  private rouletteOpen(client: Client, m: { bet?: number }) {
+  private ijOpen(client: Client, m: { bet?: number }) {
     const gm = this.state.players.get(client.sessionId);
     if (!gm?.isGM || this.state.gameStarted) return;
-    const r = this.state.roulette;
+    const r = this.state.ij;
     if (r.phase === "recruiting" || r.phase === "playing") return;
     const bet = Math.floor(Number(m?.bet));
-    if (!Number.isFinite(bet) || bet < 1 || bet > this.rouletteMaxBet()) return;
-    this.rouletteReset();
+    if (!Number.isFinite(bet) || bet < 1 || bet > this.ijMaxBet()) return;
+    this.ijReset();
     r.bet = bet;
     r.phase = "recruiting";
     r.participants.push(client.sessionId);
-    this.pushLog(`ロシアンルーレット参加者募集(掛け金${bet})`);
+    this.pushLog(`インディアンジャッジ参加者募集(掛け金${bet})`);
   }
 
-  private rouletteSetBet(client: Client, m: { bet?: number }) {
+  private ijSetBet(client: Client, m: { bet?: number }) {
     const gm = this.state.players.get(client.sessionId);
-    const r = this.state.roulette;
+    const r = this.state.ij;
     if (!gm?.isGM || r.phase !== "recruiting") return;
     const bet = Math.floor(Number(m?.bet));
-    if (!Number.isFinite(bet) || bet < 1 || bet > this.rouletteMaxBet()) return;
+    if (!Number.isFinite(bet) || bet < 1 || bet > this.ijMaxBet()) return;
     r.bet = bet;
     // 掛け金を払えなくなった参加者(GM以外)は自動で外す
     for (const id of [...(r.participants as string[])]) {
@@ -463,11 +491,11 @@ export class PokerRoom extends Room<RoomState> {
     }
   }
 
-  private rouletteJoin(client: Client) {
-    const r = this.state.roulette;
+  private ijJoin(client: Client) {
+    const r = this.state.ij;
     if (r.phase !== "recruiting") return;
     const p = this.state.players.get(client.sessionId);
-    if (!p) return;
+    if (!p || p.isSpectator) return;
     const idx = (r.participants as string[]).indexOf(client.sessionId);
     if (idx !== -1) {
       if (p.isGM) return; // GMは主催者なので抜けられない
@@ -478,120 +506,134 @@ export class PokerRoom extends Room<RoomState> {
     r.participants.push(client.sessionId);
   }
 
-  private rouletteBegin(client: Client) {
+  private ijBegin(client: Client) {
     const gm = this.state.players.get(client.sessionId);
-    const r = this.state.roulette;
+    const r = this.state.ij;
     if (!gm?.isGM || r.phase !== "recruiting" || r.participants.length < 2) return;
-    // 参加者の席順を並べ直す
     const order = (this.state.seatOrder as string[]).filter((id) => (r.participants as string[]).includes(id));
     r.participants.clear();
     order.forEach((id) => r.participants.push(id));
-    this.rouletteBulletAt = Math.floor(Math.random() * 6);
-    r.pulls = 0;
-    r.roundNo = 1;
-    r.eliminated.clear();
     r.winners.clear();
+    r.pickedIds.clear();
+    const n = order.length;
+    // 1〜(n+3) をシャッフル:先頭=場、次のn枚=各プレイヤー、残り2枚=墓地
+    const deck = Array.from({ length: n + 3 }, (_, i) => i + 1);
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [deck[i], deck[j]] = [deck[j]!, deck[i]!];
+    }
+    r.fieldNum = deck[0]!;
+    this.ijNums.clear();
+    order.forEach((id, i) => this.ijNums.set(id, deck[1 + i]!));
+    this.ijGrave = deck.slice(1 + n);
+    // 各プレイヤーに公開する情報(他プレイヤー+墓地のうち半数・切り捨て)
+    this.ijSeen.clear();
+    for (const id of order) {
+      const cand: { who: string; num: number }[] = order.filter((o) => o !== id).map((o) => ({ who: o, num: this.ijNums.get(o)! }));
+      this.ijGrave.forEach((g) => cand.push({ who: "grave", num: g }));
+      for (let i = cand.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [cand[i], cand[j]] = [cand[j]!, cand[i]!];
+      }
+      this.ijSeen.set(id, cand.slice(0, Math.floor(cand.length / 2)));
+    }
     r.phase = "playing";
-    this.rouletteSetTurn(order[0]!);
-    this.pushLog("ロシアンルーレット開始!");
+    this.pushLog("インディアンジャッジ開始!");
+    this.ijSendInfoAll();
+    this.ijStartPick();
   }
 
-  private rouletteSetTurn(playerId: string) {
-    const r = this.state.roulette;
-    this.rouletteTimer?.clear();
-    this.rouletteTicker?.clear();
-    r.turnPlayerId = playerId;
-    r.turnLeft = PokerRoom.ROULETTE_TURN_SEC;
-    const deadline = Date.now() + PokerRoom.ROULETTE_TURN_SEC * 1000;
-    this.rouletteTicker = this.clock.setInterval(() => {
+  private ijSendInfoAll() {
+    for (const c of this.clients) this.ijSendInfo(c);
+  }
+  private ijSendInfo(client: Client) {
+    const r = this.state.ij;
+    if (r.phase !== "playing") return;
+    const seen = this.ijSeen.get(client.sessionId);
+    if (!seen) return;
+    client.send("ijInfo", { field: r.fieldNum, seen, total: r.participants.length + 3 });
+  }
+
+  private ijStartPick() {
+    const r = this.state.ij;
+    this.ijTimer?.clear();
+    this.ijTicker?.clear();
+    this.ijPicks.clear();
+    r.pickedIds.clear();
+    r.step = "pick";
+    r.turnLeft = PokerRoom.IJ_PICK_SEC;
+    const deadline = Date.now() + PokerRoom.IJ_PICK_SEC * 1000;
+    this.ijTicker = this.clock.setInterval(() => {
       r.turnLeft = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
     }, 500);
-    this.rouletteTimer = this.clock.setTimeout(
-      () => this.rouletteShoot(playerId),
-      PokerRoom.ROULETTE_TURN_SEC * 1000
-    );
+    this.ijTimer = this.clock.setTimeout(() => this.ijReveal(), PokerRoom.IJ_PICK_SEC * 1000);
   }
 
-  private roulettePull(client: Client) {
-    const r = this.state.roulette;
-    if (r.phase !== "playing" || r.turnPlayerId !== client.sessionId) return;
-    this.rouletteShoot(client.sessionId);
+  private ijPick(client: Client, m: { pick?: string }) {
+    const r = this.state.ij;
+    if (r.phase !== "playing" || r.step !== "pick") return;
+    const id = client.sessionId;
+    if (!(r.participants as string[]).includes(id)) return;
+    if (m?.pick !== "high" && m?.pick !== "low") return;
+    this.ijPicks.set(id, m.pick);
+    if (!(r.pickedIds as string[]).includes(id)) r.pickedIds.push(id);
+    if ((r.participants as string[]).every((a) => this.ijPicks.has(a))) this.ijReveal();
   }
 
-  /** 生存者(参加者のうち、まだ脱落していない人。席順) */
-  private rouletteAlive(): string[] {
-    const r = this.state.roulette;
-    const out = r.eliminated as string[];
-    return (r.participants as string[]).filter((id) => !out.includes(id));
-  }
-
-  /** 最後に残る人数:参加2〜4人なら1人(総取り)、5人以上なら2人(山分け) */
-  private rouletteTargetCount(): number {
-    return this.state.roulette.participants.length >= 5 ? 2 : 1;
-  }
-
-  private rouletteShoot(playerId: string) {
-    const r = this.state.roulette;
-    if (r.phase !== "playing" || r.turnPlayerId !== playerId) return;
-    const hit = r.pulls === this.rouletteBulletAt;
-    r.pulls++;
-    this.broadcast("rouletteShot", { playerId, hit, pull: r.pulls });
-    const name = this.state.players.get(playerId)?.name ?? "";
-    const parts = r.participants as string[];
-
-    // 次に引く人=席順で playerId の次の生存者
-    const nextAliveAfter = (fromId: string, alive: string[]): string => {
-      const start = parts.indexOf(fromId);
-      for (let i = 1; i <= parts.length; i++) {
-        const cand = parts[(start + i) % parts.length]!;
-        if (alive.includes(cand)) return cand;
-      }
-      return alive[0]!;
-    };
-
-    if (!hit) {
-      this.pushLog(`${name}は引き金を引いた…カチッ。セーフ`);
-      this.rouletteSetTurn(nextAliveAfter(playerId, this.rouletteAlive()));
-      return;
-    }
-
-    // 被弾:脱落
-    this.rouletteTimer?.clear();
-    this.rouletteTicker?.clear();
-    r.eliminated.push(playerId);
-    const alive = this.rouletteAlive();
-    this.pushLog(`${name}が被弾!脱落(残り${alive.length}人)`);
-
-    if (alive.length > this.rouletteTargetCount()) {
-      // 人数が決まるまで繰り返す:弾を込め直して、残った人で続行
-      this.rouletteBulletAt = Math.floor(Math.random() * 6);
-      r.pulls = 0;
-      r.roundNo++;
-      this.rouletteSetTurn(nextAliveAfter(playerId, alive));
-      return;
-    }
-
-    // 決着:全員の掛け金の合計を、生き残った人で山分け(端数切り捨て)
-    const pot = r.bet * parts.length;
-    const each = Math.floor(pot / alive.length);
-    for (const id of parts) {
-      const pl = this.state.players.get(id);
-      if (!pl) continue;
-      if (alive.includes(id)) pl.chipDelta += each - r.bet;
-      else pl.chipDelta -= r.bet;
-    }
-    alive.forEach((id) => r.winners.push(id));
-    r.winnerGain = each - r.bet;
-    r.turnPlayerId = "";
+  /** 全員の数字を公開して判定する */
+  private ijReveal() {
+    const r = this.state.ij;
+    if (r.phase !== "playing" || r.step !== "pick") return;
+    this.ijTimer?.clear();
+    this.ijTicker?.clear();
     r.turnLeft = 0;
-    r.phase = "result";
-    this.pushLog(`ロシアンルーレット決着!生存者は次のゲームの初期チップ +${each - r.bet}、脱落者は -${r.bet}`);
+    const parts = r.participants as string[];
+    for (const id of parts) {
+      if (!this.ijPicks.has(id)) this.ijPicks.set(id, Math.random() < 0.5 ? "high" : "low");
+    }
+    const field = r.fieldNum;
+    const winners = parts.filter((id) => {
+      const n = this.ijNums.get(id)!;
+      return n > field ? this.ijPicks.get(id) === "high" : this.ijPicks.get(id) === "low";
+    });
+    const nums: Record<string, number> = {};
+    const picks: Record<string, string> = {};
+    parts.forEach((id) => {
+      nums[id] = this.ijNums.get(id)!;
+      picks[id] = this.ijPicks.get(id)!;
+    });
+    r.step = "reveal";
+    this.broadcast("ijReveal", { field, nums, picks, grave: this.ijGrave, winners });
+    this.ijTimer = this.clock.setTimeout(() => this.ijFinish(winners), PokerRoom.IJ_REVEAL_MS);
   }
 
-  private rouletteClose(client: Client) {
+  private ijFinish(winners: string[]) {
+    const r = this.state.ij;
+    const parts = r.participants as string[];
+    // 全員の掛け金の合計を、的中者で山分け(端数切り捨て)。的中者なしなら変動なし
+    if (winners.length > 0) {
+      const pot = r.bet * parts.length;
+      const each = Math.floor(pot / winners.length);
+      for (const id of parts) {
+        const pl = this.state.players.get(id);
+        if (!pl) continue;
+        if (winners.includes(id)) pl.chipDelta += each - r.bet;
+        else pl.chipDelta -= r.bet;
+      }
+      r.winnerGain = each - r.bet;
+      this.pushLog(`インディアンジャッジ決着!的中者は次のゲームの初期チップ ${r.winnerGain >= 0 ? "+" : ""}${r.winnerGain}、外れた人は -${r.bet}`);
+    } else {
+      r.winnerGain = 0;
+      this.pushLog("インディアンジャッジ:全員外れ…チップの増減なし");
+    }
+    winners.forEach((id) => r.winners.push(id));
+    r.phase = "result";
+  }
+
+  private ijClose(client: Client) {
     const gm = this.state.players.get(client.sessionId);
     if (!gm?.isGM || this.state.gameStarted) return;
-    this.rouletteReset();
+    this.ijReset();
   }
 
   // ---------- ゲーム開始 ----------
@@ -600,14 +642,13 @@ export class PokerRoom extends Room<RoomState> {
     const player = this.state.players.get(client.sessionId);
     if (!player?.isGM) return; // GM(ルーム作成者)のみ開始可能
     if (this.state.gameStarted) return;
-    if (this.state.players.size < 2) return;
+    if (this.state.seatOrder.length < 2) return;
 
-    this.rouletteReset();
+    this.ijReset();
     this.applyChipDeltas();
     this.state.gameStarted = true;
     this.state.roundNumber = 0;
     this.state.dealerSeatIndex = Math.floor(Math.random() * this.state.seatOrder.length);
-    this.lock(); // 開始後の新規入室を禁止
 
     this.startNewRound();
   }
@@ -623,6 +664,7 @@ export class PokerRoom extends Room<RoomState> {
       bigBlind: number;
       jokerEnabled: boolean;
       jokerCount: number;
+      spectatorSeeHands: boolean;
     }>
   ) {
     const player = this.state.players.get(client.sessionId);
@@ -652,6 +694,9 @@ export class PokerRoom extends Room<RoomState> {
     }
     if (typeof message.jokerEnabled === "boolean") {
       this.state.jokerEnabled = message.jokerEnabled;
+    }
+    if (typeof message.spectatorSeeHands === "boolean") {
+      this.state.spectatorSeeHands = message.spectatorSeeHands;
     }
     if (typeof message.jokerCount === "number" && message.jokerCount > 0) {
       this.state.jokerCount = Math.floor(message.jokerCount);
@@ -709,9 +754,40 @@ export class PokerRoom extends Room<RoomState> {
     this.state.lostInAmount = 0;
   }
 
+  /** 観戦者を通常プレイヤーに昇格させる(空き席がある分だけ)。ニューゲーム/ロビー復帰時に呼ぶ */
+  private promoteSpectators() {
+    this.state.players.forEach((p, id) => {
+      if (!p.isSpectator) return;
+      if (this.state.seatOrder.length >= 6) return;
+      p.isSpectator = false;
+      p.folded = false;
+      this.state.seatOrder.push(id);
+      this.pushLog(`${p.name}が観戦者から参加者になりました`);
+    });
+  }
+
+  /** 観戦者への手札公開(設定がオンのときだけ)。sessionId指定でその観戦者のみに送る */
+  private sendSpectatorHands(onlyId?: string) {
+    if (!this.state.spectatorSeeHands) return;
+    if (this.holeCards.size === 0) return;
+    if (!["preflop", "flop", "turn", "river", "judge", "showdown"].includes(this.state.phase)) return;
+    const hands: Record<string, string[]> = {};
+    for (const id of this.handParticipants) {
+      const c = this.holeCards.get(id);
+      if (c) hands[id] = c;
+    }
+    for (const c of this.clients) {
+      const pl = this.state.players.get(c.sessionId);
+      if (!pl?.isSpectator) continue;
+      if (onlyId && c.sessionId !== onlyId) continue;
+      c.send("spectatorHands", { hands });
+    }
+  }
+
   private handleNewGame(client: Client) {
     const gm = this.state.players.get(client.sessionId);
     if (!gm?.isGM || this.state.phase !== "gameEnd") return;
+    this.promoteSpectators();
     this.resetForNewGame();
     if (this.state.seatOrder.length < 2) return this.handleReturnToLobby(client);
     this.state.dealerSeatIndex = Math.floor(Math.random() * this.state.seatOrder.length);
@@ -723,6 +799,7 @@ export class PokerRoom extends Room<RoomState> {
   private handleReturnToLobby(client: Client) {
     const gm = this.state.players.get(client.sessionId);
     if (!gm?.isGM || this.state.phase !== "gameEnd") return;
+    this.promoteSpectators();
     this.resetForNewGame();
     this.state.gameStarted = false;
     this.state.phase = "waiting";
@@ -856,6 +933,7 @@ export class PokerRoom extends Room<RoomState> {
 
     this.pushLog(`--- ラウンド${this.state.roundNumber}開始(BTN: ${this.state.players.get(btnId)!.name}) ---`);
     this.state.phase = "preflop";
+    this.sendSpectatorHands();
 
     // プリフロップの初手番: ヘッズアップはSB(=BTN)、それ以外はBBの次(UTG)
     if (order.length === 2) {
@@ -891,7 +969,7 @@ export class PokerRoom extends Room<RoomState> {
   /** 「降参」ボタン:以降のラウンドから除外される(廃人・死亡・バストと同様の観戦扱い) */
   private handleSurrender(client: Client) {
     const player = this.state.players.get(client.sessionId);
-    if (!player) return;
+    if (!player || player.isSpectator) return;
     if (this.state.phase === "gameEnd") return; // ゲーム終了後は降参不可
     if (player.isDead || player.isVegetative || player.isBusted || player.isSurrendered) return;
 
@@ -962,6 +1040,7 @@ export class PokerRoom extends Room<RoomState> {
 
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
+    if (player.isSpectator) return deny("out");
     if (player.isDead) return deny("dead");
     if (player.isVegetative) return deny("vegetative");
     if (player.isBusted || player.isSurrendered) return deny("out");

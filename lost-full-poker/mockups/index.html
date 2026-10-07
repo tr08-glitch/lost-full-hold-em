@@ -39,7 +39,7 @@
   .clear, .back { background:#1a1a1a; border:1px solid #666; color:#eee; }
 
   /* ---------- ルームロビー画面 ---------- */
-  .screen-room { display:flex; height:100vh; box-sizing:border-box; padding:24px; gap:24px; }
+  .screen-room { display:flex; height:100vh; box-sizing:border-box; padding:24px; gap:24px; background:linear-gradient(#000000aa,#000000aa), #050304 url('assets/room-bg.jpg') center/cover no-repeat; }
   .room-left { width:40%; display:flex; flex-direction:column; gap:14px; }
   .room-id { font-size:26px; letter-spacing:6px; color:#b91c1c; }
   .room-id .label { font-size:11px; color:#999; letter-spacing:0; display:block; margin-bottom:2px; }
@@ -94,7 +94,10 @@
   .chipcol { position:relative; }
   .chipcol img { position:absolute; left:0; width:100%; display:block; filter:drop-shadow(0 1px 1px #000); }
   .pot-chips { margin-top:4px; min-height:4px; text-align:center; }
-  .bet-chip .lbl { font-size:11px; letter-spacing:1px; }
+  .bet-chip { flex-wrap:wrap; }
+  .bet-chip .lbl { white-space:nowrap; }
+  .bet-chip .bet-sub { flex-basis:100%; text-align:center; margin:2px 0 0 0 !important; }
+  .bet-chip .lbl-dummy { font-size:11px; letter-spacing:1px; }
   .bet-chip .amt { font-size:22px; font-weight:bold; }
   .bet-chip.active { background:#2a2208; border:2px solid #e0b040; color:#ffd24d; box-shadow:0 0 10px #e0b04055; }
   .bet-sub { font-size:10px; color:#888; margin-top:2px; }
@@ -240,8 +243,18 @@
   .judge-box .jb-row.win { background:#ffd24d33; color:#ffd24d; font-weight:bold; border:1px solid #ffd24d; }
   @keyframes jbIn { from { opacity:0; transform:translateY(8px);} to { opacity:1; transform:none; } }
   .dead-emblem { position:absolute; left:50%; top:50%; width:92%; transform:translate(-50%,-50%); opacity:.5; mix-blend-mode:screen; pointer-events:none; z-index:2; }
+  #screen-result.res-rounds { background:linear-gradient(#000000b0,#000000b0), #0a0a0a url('assets/result-rounds.jpg') center/cover no-repeat; }
+  #screen-result.res-slaughter { background:linear-gradient(#000000a0,#000000a0), #0a0a0a url('assets/result-last-survivor.jpg') center/cover no-repeat; }
+  body.is-spectator .self-panel, body.is-spectator .hand-area, body.is-spectator .hand-label, body.is-spectator .action-bar, body.is-spectator .exchange-tab, body.is-spectator .top-right-actions .surrender { display:none !important; }
+  .spectator-badge { position:absolute; top:14px; left:50%; transform:translateX(-50%); z-index:6; display:none; background:#10161ccc; border:1px solid #6fa8d8; color:#9fcbee; padding:6px 18px; border-radius:20px; font-size:13px; letter-spacing:2px; pointer-events:none; }
+  body.is-spectator .spectator-badge { display:block; }
   .win-banner { position:absolute; top:42%; left:50%; transform:translate(-50%,-50%) scale(.8); opacity:0; pointer-events:none; transition:opacity .3s, transform .3s; z-index:16; text-align:center; background:#1a1608ee; border:3px solid #ffd24d; border-radius:16px; padding:18px 40px; box-shadow:0 0 40px #ffd24d66; color:#ffd24d; }
   .win-banner .wb-title { font-size:34px; font-weight:bold; letter-spacing:4px; }
+  .win-banner .wb-chips { margin-top:12px; min-height:10px; display:flex; justify-content:center; }
+  .win-banner .wb-chips .chipstack { gap:8px; }
+  .win-banner.show .wb-chips .chipcol img { animation:chipDrop .55s cubic-bezier(.3,1.6,.5,1) both; }
+  .win-banner.show .wb-chips .chipcol img:nth-child(1){animation-delay:.15s} .win-banner.show .wb-chips .chipcol img:nth-child(2){animation-delay:.25s} .win-banner.show .wb-chips .chipcol img:nth-child(3){animation-delay:.35s} .win-banner.show .wb-chips .chipcol img:nth-child(4){animation-delay:.45s} .win-banner.show .wb-chips .chipcol img:nth-child(5){animation-delay:.55s} .win-banner.show .wb-chips .chipcol img:nth-child(6){animation-delay:.65s}
+  @keyframes chipDrop { from { opacity:0; transform:translateY(-70px) scale(1.3); } to { opacity:1; transform:none; } }
   .win-banner .wb-pot { font-size:20px; margin-top:6px; color:#fff1b8; }
   .win-banner.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
   .phase-banner.show { opacity:1; transform:translate(-50%,-50%) scale(1); }
@@ -253,7 +266,7 @@
   <div class="app-screen screen-title" id="screen-title">
     <div class="settings-icon">⚙</div>
     <div class="title-center">
-      <div class="title-logo"><img class="title-logo-img" src="assets/logo.webp" alt="LOST FULL HOLD'EM"><div class="title-sub">ロストフルホールデム</div></div>
+      <div class="title-logo"><img class="title-logo-img" src="assets/logo.webp" alt="LOST FULL HOLD'EM"></div>
       <div class="name-input">
         <label style="font-size:12px;color:#bbb;">プレイヤー名</label><br>
         <input type="text" id="playerNameInput" placeholder="名前(未入力なら自動)" maxlength="10">
@@ -306,7 +319,7 @@
       <button onclick="openRules()" style="width:100%;margin-top:8px;">ルール</button>
       <div class="status-line" id="statusLine"></div>
       <div style="margin-top:auto; display:flex; flex-direction:column; gap:8px;">
-        <div class="gm-only"><span>GMのみ表示</span><button id="rouletteStartBtn" style="width:100%;border-color:#b91c1c;color:#e05252;" onclick="startRoulette()">🔫 ロシアンルーレットをプレイ</button></div>
+        <div class="gm-only"><span>GMのみ表示</span><button id="ijStartBtn" style="width:100%;border-color:#b91c1c;color:#e05252;" onclick="startIJ()">🃏 インディアンジャッジ をプレイ</button></div>
         <div class="gm-only"><span>GMのみ表示</span><button id="startBtn" class="primary" style="width:100%;" onclick="startGame()" disabled>ゲーム開始</button></div>
         <button onclick="leaveRoom()">ルームから抜ける</button>
         <div class="gm-only"><span>GMのみ表示</span><button style="width:100%;" onclick="leaveRoom()">ルーム解散</button></div>
@@ -327,10 +340,10 @@
           <button class="chat-send-btn primary" onclick="sendLobbyChat()">送信</button>
         </div>
       </div>
-      <div class="chat-box" id="roulettePanel" style="display:none;overflow-y:auto;border-color:#b91c1c;">
-        <label style="color:#e05252;letter-spacing:2px;">🔫 ロシアンルーレット</label>
-        <div style="font-size:11px;color:#999;margin:4px 0 10px;">次のゲームの初期チップを少し賭けるミニゲーム。被弾した人は脱落し、2〜4人なら最後の1人が総取り、5人以上なら最後の2人で山分け。</div>
-        <div id="rouletteBody"></div>
+      <div class="chat-box" id="ijPanel" style="display:none;overflow-y:auto;border-color:#b91c1c;">
+        <label style="color:#e05252;letter-spacing:2px;">🃏 インディアンジャッジ</label>
+        <div id="ijDesc" style="font-size:11px;color:#999;margin:4px 0 10px;">次のゲームの初期チップを少し賭けるミニゲーム。数字カードは 1〜(人数+3):場に1枚、各自1枚(自分のは見えない)、墓地2枚。他の人の手札と墓地のうち半数(切り捨て)があなたにだけ見えます。それを手がかりに、自分の数字が場より大きいか小さいかを予想。的中した人全員で掛け金を山分けします。</div>
+        <div id="ijBody"></div>
       </div>
     </div>
   </div>
@@ -367,6 +380,7 @@
         <label>ジョーカーの枚数</label>
         <input type="number" id="jokerCount" value="2" min="1" max="4" disabled>
       </div>
+      <div class="toggle-row"><span>観戦者への手札の公開</span><input type="checkbox" id="spectatorHandsToggle" autocomplete="off"></div>
       <div class="toggle-row"><span>他プレイヤーの赤札推定額を表示</span><input type="checkbox" checked></div>
       <div class="toggle-row"><span>他プレイヤーのチップ額を表示</span><input type="checkbox" checked></div>
       <div class="modal-actions">
@@ -377,7 +391,7 @@
   </div>
 
   <!-- ================= 対戦卓画面 ================= -->
-  <div class="app-screen screen-result" id="screen-result" style="background:#0b0b0b;min-height:100vh;color:#eee;padding:32px 16px;box-sizing:border-box;">
+  <div class="app-screen screen-result" id="screen-result" style="background-color:#0b0b0b;min-height:100vh;color:#eee;padding:32px 16px;box-sizing:border-box;">
     <div style="max-width:520px;margin:0 auto;">
       <h1 style="text-align:center;color:#e05252;letter-spacing:4px;margin:0 0 6px;">結果発表</h1>
       <div id="resultSub" style="text-align:center;color:#999;font-size:13px;margin-bottom:24px;"></div>
@@ -393,8 +407,9 @@
   <div class="app-screen screen-table" id="screen-table">
     <div class="phase-banner" id="phaseBanner"></div>
     <div id="needExchangeBanner" style="display:none;position:absolute;top:14px;left:50%;transform:translateX(-50%);z-index:17;background:#2a0808;border:2px solid #ff4d4d;color:#ffb0b0;padding:10px 22px;border-radius:10px;font-size:15px;font-weight:bold;text-align:center;max-width:80%;"></div>
+    <div class="spectator-badge" id="spectatorBadge">👁 観戦中</div>
     <div class="judge-box" id="judgeBox"><div id="judgeRows"></div></div>
-    <div class="win-banner" id="winBanner"><div class="wb-title">ラウンド勝利</div><div class="wb-pot">獲得ポット <span id="wbAmount">0</span></div></div>
+    <div class="win-banner" id="winBanner"><div class="wb-title">ラウンド勝利</div><div class="wb-pot">獲得ポット <span id="wbAmount">0</span></div><div class="wb-chips" id="wbChips"></div></div>
     <div class="action-turn-banner" id="actionTurnBanner">Action</div>
     <div class="round-box">残りラウンド<br><span class="val">-</span></div>
     <div class="turn-timer" id="turnTimer" style="display:none;"><div class="tt-name" id="ttName"></div><div class="tt-sec" id="ttSec">0</div><div>持ち時間(秒)</div></div>
@@ -500,7 +515,7 @@
     <div class="drawer-overlay" id="drawerOverlay" onclick="closeExchange()"></div>
     <div class="exchange-drawer" id="exchangeDrawer">
       <div class="drawer-close" onclick="closeExchange()">戻る</div>
-      <div class="drawer-note">全体図<br>パーツの残を確認<br>(換金済みの部位は白っぽく表示)</div>
+      <div class="drawer-note">全体図<br>パーツの残を確認<br>(換金済みの部位は赤く表示)</div>
       <div class="drawer-figure">
         <div class="body-monitor">
           <img class="bm-frame" src="assets/body/frame.webp" alt="" draggable="false">
@@ -524,7 +539,7 @@
         </select>
         <button class="drawer-exchange-btn" id="drawerExchangeBtn" onclick="doDrawerExchange()">換金</button>
       </div>
-      <div class="drawer-legend">赤=未換金 / グレーがかった白=換金済み(不可逆)</div>
+      <div class="drawer-legend">白=未換金 / 赤=換金済み(不可逆)(黄の縁=選択中)</div>
     </div>
   </div>
 
@@ -626,7 +641,9 @@
         document.getElementById('joinError').textContent =
           (e && String(e.message || e).indexOf('duplicate_name') !== -1)
             ? '名前が同じ人がいるため、ルームに参加するのに失敗しました'
-            : 'ルームが見つからないか、既にゲームが開始されています';
+            : ((e && String(e.message || e).indexOf('room_full') !== -1)
+              ? 'ルームが満員です(最大6人)'
+              : 'ルームが見つかりません');
         btn.disabled = false;
         return;
       }
@@ -726,7 +743,7 @@
       room.onStateChange(function () {
         document.getElementById('roomIdText').textContent = room.state.roomCode || '----';
         renderLobbyPlayers();
-        renderRoulette();
+        renderIJ();
         if (room.state.mode !== undefined) updateStatusLine();
         if (room.state.phase === 'gameEnd') {
           lastRoundShown = 0; // 次のゲームの1ラウンド目でも「1ラウンド」を出すため
@@ -773,7 +790,7 @@
     function renderResults() {
       const st = room.state;
       const ps = [];
-      st.players.forEach(function (p) { ps.push(p); });
+      st.players.forEach(function (p) { if (!p.isSpectator) ps.push(p); });
       // 降参者は常に最下位。複数人いる場合は、先に降参した人ほど下(後に降参した人ほど上)
       ps.sort(function (a, b) {
         if (a.isSurrendered !== b.isSurrendered) return a.isSurrendered ? 1 : -1;
@@ -794,10 +811,14 @@
           '<div style="flex:1;"><div style="font-size:16px;font-weight:bold;"></div><div style="font-size:11px;color:#c66;"></div></div>' +
           '<div style="font-size:18px;color:#e0d060;">' + p.chips + '</div>';
         row.querySelector('div[style*="font-weight"]').textContent = p.name + (p.id === room.sessionId ? '(自分)' : '');
-        row.querySelectorAll('div')[2].textContent = status;
+        row.querySelectorAll('div')[3].textContent = status;
         list.appendChild(row);
       });
       const alive = ps.filter(function (p) { return !p.isDead && !p.isVegetative && !p.isBusted && !p.isSurrendered; }).length;
+      const lastSurvivorEnd = alive < 2 && st.roundNumber <= st.maxRounds;
+      const rs = document.getElementById('screen-result');
+      rs.classList.toggle('res-slaughter', lastSurvivorEnd);
+      rs.classList.toggle('res-rounds', !lastSurvivorEnd);
       document.getElementById('resultSub').textContent = alive < 2 && st.roundNumber <= st.maxRounds
         ? '生存者が1人以下になったため終了(' + Math.min(st.roundNumber, st.maxRounds) + 'ラウンド)'
         : '全' + st.maxRounds + 'ラウンド終了';
@@ -813,7 +834,7 @@
       const list = document.getElementById('playerList');
       list.innerHTML = '';
       const players = [];
-      room.state.players.forEach(function (p) { players.push(p); });
+      room.state.players.forEach(function (p) { if (!p.isSpectator) players.push(p); });
       players.sort(function (a, b) { return a.seatIndex - b.seatIndex; });
       const meForKick = room.state.players.get(room.sessionId);
       const canKick = !!(meForKick && meForKick.isGM);
@@ -854,6 +875,7 @@
       document.getElementById('jokerToggle').checked = state.jokerEnabled;
       document.getElementById('jokerCount').value = state.jokerCount;
       document.getElementById('jokerCount').disabled = !state.jokerEnabled;
+      document.getElementById('spectatorHandsToggle').checked = !!state.spectatorSeeHands;
       document.getElementById('settingsModal').style.display = 'flex';
     }
     function closeSettings() {
@@ -868,6 +890,7 @@
         bigBlind: Number(document.getElementById('bbAmount').value),
         jokerEnabled: document.getElementById('jokerToggle').checked,
         jokerCount: Number(document.getElementById('jokerCount').value),
+        spectatorSeeHands: document.getElementById('spectatorHandsToggle').checked,
       });
       closeSettings();
     }
@@ -887,7 +910,6 @@
       lastActionPlayerId = null;
       lastPhase = null;
       lastRoundShown = 0;
-      lastRoulettePhase = 'idle';
       document.getElementById('actionTurnBanner').classList.remove('show');
       document.getElementById('phaseBanner').classList.remove('show');
       chatMessages = [];
@@ -902,15 +924,24 @@
 
 
 
-    // ---------- ミニゲーム:ロシアンルーレット ----------
-    let lastRoulettePhase = 'idle';
-    let rouletteFlash = '';
-    function startRoulette() {
+    // ---------- ミニゲーム:インディアンジャッジ ----------
+    let ijLast = null;        // 直近の公開結果(ijReveal)
+    let ijInfo = null;        // 自分にだけ公開されたカード情報(ijInfo)
+    let ijInfoAsked = false;
+    let myIJPick = '';
+    let myIJKey = '';
+    function startIJ() {
       if (!room) return;
-      room.send('rouletteOpen', { bet: room.state.bigBlind }); // 掛け金の初期値はBB(募集中に変更可)
+      ijInfoAsked = false;
+      room.send('ijOpen', { bet: room.state.bigBlind }); // 掛け金の初期値はBB(募集中に変更可)
     }
-    function sendRouletteBet() {
-      room.send('rouletteSetBet', { bet: Number(document.getElementById('rouletteBetInput').value) });
+    function sendIJBet() {
+      room.send('ijSetBet', { bet: Number(document.getElementById('ijBetInput').value) });
+    }
+    function pickIJ(v) {
+      myIJPick = v;
+      room.send('ijPick', { pick: v });
+      renderIJ();
     }
     function pName(id) {
       const p = room.state.players.get(id);
@@ -921,25 +952,32 @@
       return '<button ' + (opts.disabled ? 'disabled ' : '') + 'onclick="' + onclick + '" style="padding:10px 16px;border-radius:8px;border:1px solid ' + (opts.color || '#b91c1c') +
         ';background:' + (opts.bg || '#2a0c0c') + ';color:#fff;cursor:pointer;font-size:14px;margin:4px 4px 0 0;' + (opts.disabled ? 'opacity:.4;' : '') + '">' + label + '</button>';
     }
-    function renderRoulette() {
-      if (!room || !room.state || !room.state.roulette) return;
-      const r = room.state.roulette;
+    function ijCardHtml(num, kind, small) {
+      const w = small ? 40 : 54, hgt = small ? 58 : 78;
+      const bd = kind === 'gold' ? '#ffd24d' : kind === 'dim' ? '#555' : '#b91c1c';
+      const base = 'width:' + w + 'px;height:' + hgt + 'px;border-radius:6px;display:flex;align-items:center;justify-content:center;margin-top:3px;box-shadow:0 2px 4px #000;';
+      if (num === null || num === undefined || num === 0) return '<div style="' + base + 'background:url(assets/cards/BACK.webp) center/cover;"></div>';
+      return '<div style="' + base + 'background:#14100e;border:2px solid ' + bd + ';color:' + (kind === 'gold' ? '#ffd24d' : '#eee') + ';font-size:' + (small ? 22 : 30) + 'px;font-weight:bold;font-family:serif;">' + num + '</div>';
+    }
+    function renderIJ() {
+      if (!room || !room.state || !room.state.ij) return;
+      const r = room.state.ij;
       const st = room.state;
       const me = st.players.get(room.sessionId);
       const isGM = !!(me && me.isGM);
-      const panel = document.getElementById('roulettePanel');
+      const panel = document.getElementById('ijPanel');
       const chat = document.querySelector('#screen-room .room-right-wrap .chat-box');
       const active = r.phase !== 'idle' && !st.gameStarted;
       // ミニゲーム中は、右下のチャット欄がミニゲーム画面に切り替わる(全員)
       panel.style.display = active ? 'flex' : 'none';
       panel.style.flexDirection = 'column';
+      panel.style.height = active ? 'min(360px, 55vh)' : '';
       chat.style.display = active ? 'none' : '';
-      const startBtn = document.getElementById('rouletteStartBtn');
+      const startBtn = document.getElementById('ijStartBtn');
       if (startBtn) startBtn.disabled = r.phase === 'recruiting' || r.phase === 'playing';
-      if (!active) { lastRoulettePhase = r.phase; return; }
-      lastRoulettePhase = r.phase;
+      if (!active) return;
       const maxBet = Math.max(1, st.bigBlind); // 掛け金の上限はBBと同じ額
-      const betEl = document.getElementById('rouletteBetInput');
+      const betEl = document.getElementById('ijBetInput');
       const keepBet = betEl ? betEl.value : null; // 入力中の掛け金は再描画で消さない
       const parts = Array.from(r.participants);
       let h = '';
@@ -947,50 +985,74 @@
         const joined = parts.indexOf(room.sessionId) !== -1;
         h += '<div style="font-size:18px;color:#ffd24d;margin-bottom:8px;">掛け金 ' + r.bet + '</div>';
         if (isGM) {
-          h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;"><span style="font-size:12px;">変更(1〜' + maxBet + ')</span><input type="number" id="rouletteBetInput" value="' + r.bet + '" min="1" max="' + maxBet +
-            '" style="width:90px;padding:6px;background:#1a1a1a;border:1px solid #444;color:#eee;border-radius:6px;">' + rBtn('変更', 'sendRouletteBet()', { bg: '#222', color: '#666' }) + '</div>';
+          h += '<div style="display:flex;gap:6px;align-items:center;margin-bottom:8px;"><span style="font-size:12px;">変更(1〜' + maxBet + ')</span><input type="number" id="ijBetInput" value="' + r.bet + '" min="1" max="' + maxBet +
+            '" style="width:90px;padding:6px;background:#1a1a1a;border:1px solid #444;color:#eee;border-radius:6px;">' + rBtn('変更', 'sendIJBet()', { bg: '#222', color: '#666' }) + '</div>';
         }
         h += '<div style="margin-bottom:6px;">参加者(' + parts.length + '人)</div>';
         h += parts.map(function (id) { return '<div style="padding:3px 0;">● ' + pName(id) + '</div>'; }).join('');
-        if (!isGM) h += rBtn(joined ? '参加をやめる' : '参加する', "room.send('rouletteJoin')", { bg: joined ? '#222' : '#5a1010' });
+        if (!isGM) h += rBtn(joined ? '参加をやめる' : '参加する', "room.send('ijJoin')", { bg: joined ? '#222' : '#5a1010' });
         if (isGM) {
-          h += '<div style="margin-top:10px;">' + rBtn('開始', "room.send('rouletteBegin')", { disabled: parts.length < 2, bg: '#b91c1c' }) + rBtn('中止', "room.send('rouletteClose')", { bg: '#222', color: '#666' }) + '</div>';
+          h += '<div style="margin-top:10px;">' + rBtn('開始', "room.send('ijBegin')", { disabled: parts.length < 2, bg: '#b91c1c' }) + rBtn('中止', "room.send('ijClose')", { bg: '#222', color: '#666' }) + '</div>';
           if (parts.length < 2) h += '<div style="font-size:11px;color:#999;margin-top:6px;">2人以上の参加が必要です</div>';
         }
       } else if (r.phase === 'playing') {
-        const myTurn = r.turnPlayerId === room.sessionId;
-        let chambers = '';
-        for (let i = 0; i < 6; i++) {
-          const used = i < r.pulls;
-          chambers += '<span style="display:inline-block;width:34px;height:34px;line-height:34px;margin:0 4px;border-radius:50%;border:2px solid ' + (used ? '#4ade80' : '#888') + ';color:' + (used ? '#4ade80' : '#555') + ';font-size:11px;text-align:center;">' + (used ? 'セーフ' : '?') + '</span>';
+        if (myIJKey !== r.bet + ':' + r.participants.length + ':' + r.fieldNum) { myIJKey = r.bet + ':' + r.participants.length + ':' + r.fieldNum; myIJPick = ''; ijLast = null; ijInfo = null; }
+        if (!ijInfo && !ijInfoAsked) { ijInfoAsked = true; room.send('ijInfoReq'); }
+        const picked = Array.from(r.pickedIds);
+        const iAmIn = parts.indexOf(room.sessionId) !== -1;
+        const revealing = r.step === 'reveal';
+        const total = parts.length + 3;
+        h += '<div style="text-align:center;font-size:12px;color:#999;margin-bottom:6px;">数字は 1〜' + total + '(場1・各自1・墓地2)/ 的中者で山分け</div>';
+        // 場 + 自分(?)
+        h += '<div style="display:flex;justify-content:center;align-items:flex-end;gap:22px;margin:2px 0 8px;">' +
+          '<div style="text-align:center;font-size:11px;color:#999;">場' + ijCardHtml(r.fieldNum, 'gold') + '</div>' +
+          '<div style="text-align:center;font-size:11px;color:#999;">あなた' + ijCardHtml(revealing && ijLast && ijLast.nums ? ijLast.nums[room.sessionId] : null) + '</div></div>';
+        // 公開された他人のカード
+        if (!revealing && ijInfo && iAmIn) {
+          h += '<div style="font-size:12px;color:#ffd24d;text-align:center;margin-bottom:4px;">あなたにだけ見えているカード</div><div style="display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-bottom:8px;">' +
+            ijInfo.seen.map(function (c) { return '<div style="text-align:center;font-size:11px;color:#bbb;">' + (c.who === 'grave' ? '墓地' : pName(c.who)) + ijCardHtml(c.num, c.who === 'grave' ? 'dim' : '', true) + '</div>'; }).join('') + '</div>';
         }
-        const target = parts.length >= 5 ? 2 : 1;
-        const elim = Array.from(r.eliminated);
-        h += '<div style="text-align:center;font-size:12px;color:#999;margin-bottom:6px;">' + r.roundNo + '巡目 / ' + (target === 1 ? '最後の1人が総取り' : '最後の2人で山分け') + '</div>';
-        h += '<div style="text-align:center;margin:4px 0 10px;">' + chambers + '</div>';
         h += '<div style="display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:8px;">' + parts.map(function (id) {
-          const out = elim.indexOf(id) !== -1;
-          const turn = id === r.turnPlayerId;
-          return '<span style="padding:3px 10px;border-radius:12px;font-size:12px;border:1px solid ' + (turn ? '#ffd24d' : out ? '#552' : '#666') + ';color:' + (out ? '#666' : turn ? '#ffd24d' : '#ddd') + ';' + (out ? 'text-decoration:line-through;' : '') + '">' + pName(id) + (out ? ' 💀' : '') + '</span>';
+          const done = picked.indexOf(id) !== -1;
+          let mark = '';
+          if (revealing && ijLast && ijLast.picks && ijLast.picks[id]) {
+            const win = ijLast.winners.indexOf(id) !== -1;
+            mark = ' #' + ijLast.nums[id] + (ijLast.picks[id] === 'high' ? ' ⬆' : ' ⬇') + (win ? ' ○' : ' ✕');
+          } else if (done) mark = ' ✓';
+          return '<span style="padding:3px 10px;border-radius:12px;font-size:12px;border:1px solid ' + (done || revealing ? '#4ade80' : '#666') + ';color:#ddd;">' + pName(id) + mark + '</span>';
         }).join('') + '</div>';
-        h += '<div style="text-align:center;font-size:18px;color:#ffd24d;">' + (myTurn ? 'あなたの番' : pName(r.turnPlayerId) + 'の番') + ' <span style="font-size:24px;font-weight:bold;color:' + (r.turnLeft <= 5 ? '#ff5a5a' : '#4ade80') + ';">' + r.turnLeft + '</span></div>';
-        h += '<div style="text-align:center;min-height:28px;font-size:20px;font-weight:bold;color:#e0e0e0;">' + rouletteFlash + '</div>';
-        h += '<div style="text-align:center;">' + rBtn('🔫 引き金を引く', "room.send('roulettePull')", { disabled: !myTurn, bg: '#b91c1c' }) + '</div>';
-        h += '<div style="font-size:11px;color:#999;margin-top:8px;text-align:center;">弾は6発のうち1発。被弾した人は脱落し、弾を込め直して続行。時間切れは自動で引かれます</div>';
+        if (!revealing) {
+          h += '<div style="text-align:center;font-size:15px;color:#ffd24d;">あなたの数字は場より? <span style="font-size:22px;font-weight:bold;color:' + (r.turnLeft <= 5 ? '#ff5a5a' : '#4ade80') + ';">' + r.turnLeft + '</span>秒</div>';
+          if (iAmIn) {
+            h += '<div style="text-align:center;">' +
+              rBtn('⬆ 大きい', "pickIJ('high')", { bg: myIJPick === 'high' ? '#b91c1c' : '#2a0c0c' }) +
+              rBtn('⬇ 小さい', "pickIJ('low')", { bg: myIJPick === 'low' ? '#b91c1c' : '#2a0c0c' }) + '</div>';
+            h += '<div style="font-size:11px;color:#999;margin-top:6px;text-align:center;">' + (myIJPick ? '予想済み(時間内なら変更できます)' : '全員が予想すると公開されます。未予想はランダム') + '</div>';
+          } else h += '<div style="text-align:center;color:#999;margin-top:8px;">観戦中…</div>';
+        } else {
+          let msg = '';
+          if (ijLast) {
+            const w = ijLast.winners;
+            msg = w.length === 0 ? '全員外れ…増減なし' : w.length === parts.length ? '全員的中!' : '🏆 的中: ' + w.map(pName).join('、');
+            h += '<div style="text-align:center;font-size:11px;color:#999;">墓地: ' + ijLast.grave.join('・') + '</div>';
+          }
+          h += '<div style="text-align:center;min-height:28px;font-size:20px;font-weight:bold;color:#e0e0e0;">' + msg + '</div>';
+        }
       } else if (r.phase === 'result') {
         const winners = Array.from(r.winners);
         h += '<div style="text-align:center;font-size:26px;font-weight:bold;color:#ffd24d;letter-spacing:4px;">決着!</div>';
-        h += '<div style="text-align:center;font-size:14px;margin:4px 0 8px;color:#999;">' + (winners.length === 1 ? '総取り' : '山分け') + '</div>';
+        h += '<div style="text-align:center;font-size:14px;margin:4px 0 8px;color:#999;">' + (winners.length === 0 ? '全員外れ' : winners.length === 1 ? '総取り' : '山分け') + '</div>';
         parts.forEach(function (id) {
           const won = winners.indexOf(id) !== -1;
-          h += '<div style="display:flex;justify-content:space-between;padding:5px 10px;margin-bottom:4px;border-radius:6px;background:#1a1010;"><span>' + (won ? '🏆 ' : '💀 ') + pName(id) + '</span><span style="font-weight:bold;color:' + (won ? '#4ade80' : '#ff6b6b') + ';">' +
-            '次回の初期チップ ' + (won ? '+' + r.winnerGain : '-' + r.bet) + '</span></div>';
+          h += '<div style="display:flex;justify-content:space-between;padding:5px 10px;margin-bottom:4px;border-radius:6px;background:#1a1010;"><span>' + (won ? '🏆 ' : winners.length === 0 ? '' : '💀 ') + pName(id) + '</span><span style="font-weight:bold;color:' + (won ? '#4ade80' : '#ff5a5a') + ';">' +
+            '次回の初期チップ ' + (winners.length === 0 ? '±0' : won ? (r.winnerGain >= 0 ? '+' : '') + r.winnerGain : '-' + r.bet) + '</span></div>';
         });
-        if (isGM) h += '<div style="margin-top:8px;">' + rBtn('もう一度', 'startRoulette()', { bg: '#5a1010' }) + rBtn('ロビーに戻る', "room.send('rouletteClose')", { bg: '#222', color: '#666' }) + '</div>';
+        if (isGM) h += '<div style="margin-top:8px;">' + rBtn('もう一度', 'startIJ()', { bg: '#5a1010' }) + rBtn('ロビーに戻る', "room.send('ijClose')", { bg: '#222', color: '#666' }) + '</div>';
         else h += '<div style="color:#999;text-align:center;margin-top:8px;">GMの操作を待っています…</div>';
       }
-      document.getElementById('rouletteBody').innerHTML = h;
-      const betEl2 = document.getElementById('rouletteBetInput');
+      document.getElementById('ijDesc').style.display = r.phase === 'recruiting' ? '' : 'none';
+      document.getElementById('ijBody').innerHTML = h;
+      const betEl2 = document.getElementById('ijBetInput');
       if (betEl2 && keepBet !== null) betEl2.value = keepBet;
     }
 
@@ -1194,10 +1256,13 @@
         paintMyCards();
       });
 
-      room.onMessage('rouletteShot', function (message) {
-        rouletteFlash = message.hit ? '💥 BANG!' : 'カチッ… セーフ';
-        renderRoulette();
-        setTimeout(function () { rouletteFlash = ''; if (room) renderRoulette(); }, 1500);
+      room.onMessage('ijInfo', function (message) {
+        ijInfo = message;
+        renderIJ();
+      });
+      room.onMessage('ijReveal', function (message) {
+        ijLast = message;
+        renderIJ();
       });
 
       room.onMessage('exchangeError', function (message) {
@@ -1214,6 +1279,11 @@
 
       room.onMessage('actionError', function (message) {
         showToast(actionErrorMessages[message.reason] || 'その操作はできません');
+      });
+
+      room.onMessage('spectatorHands', function (message) {
+        spectatorHands = (message && message.hands) || {};
+        if (room && room.state && room.state.gameStarted) renderTable();
       });
 
       room.onMessage('judgeStart', function (message) {
@@ -1240,6 +1310,7 @@
         if (mine) {
           const wb = document.getElementById('winBanner');
           document.getElementById('wbAmount').textContent = mine.amountWon;
+          document.getElementById('wbChips').innerHTML = chipStackHtml(mine.amountWon, 40);
           wb.classList.add('show');
           clearTimeout(wb._t);
           wb._t = setTimeout(function () { wb.classList.remove('show'); }, 3000);
@@ -1363,6 +1434,7 @@
       document.querySelector('.round-box .val').textContent =
         Math.max(0, state.maxRounds - state.roundNumber + 1);
 
+      document.body.classList.toggle('is-spectator', !!me.isSpectator);
       applyModeVisibility(state);
       checkPhaseBanner(state);
       checkActionTurnBanner(state);
@@ -1387,8 +1459,12 @@
       area.innerHTML = '';
       const others = [];
       state.players.forEach(function (p, sessionId) {
+        if (p.isSpectator) return; // 観戦者は卓に表示しない
         if (sessionId !== room.sessionId) others.push(p);
       });
+      const meSp = state.players.get(room.sessionId);
+      const iAmSpectator = !!(meSp && meSp.isSpectator);
+      // 観戦者は自分の席がないので、全プレイヤーを相手枠として並べる(手札公開設定がオンなら手札も見える)
       others.sort(function (a, b) { return a.seatIndex - b.seatIndex; });
 
       others.forEach(function (p) {
@@ -1397,6 +1473,8 @@
         let cardsHtml = '';
         if (p.revealedHoleCards.length === 2) {
           cardsHtml = miniCardHtml(p.revealedHoleCards[0]) + miniCardHtml(p.revealedHoleCards[1]);
+        } else if (iAmSpectator && state.spectatorSeeHands && spectatorHands[p.id] && p.holeCardCount === 2) {
+          cardsHtml = miniCardHtml(spectatorHands[p.id][0]) + miniCardHtml(spectatorHands[p.id][1]);
         } else if (p.holeCardCount === 2 && !p.folded) {
           cardsHtml = faceDownMiniCardHtml() + faceDownMiniCardHtml();
         }
@@ -1464,6 +1542,8 @@
         return (i === 0 ? 'メイン' : 'サイド' + i) + ' ' + l.amount + '(' + l.elig.map(escapeHtml).join('・') + ')';
       }).join('<br>');
     }
+
+    let spectatorHands = {};
 
     // ---------- チップ画像(白=1 / 赤=10 / 黒=100 / 金=1000) ----------
     const CHIP_DENOMS = [[1000, 'gold'], [100, 'black'], [10, 'red'], [1, 'white']];
@@ -1803,15 +1883,15 @@
       const ctx = cv.getContext('2d');
       const k = cv.width / BODY_SRC_W;
       ctx.clearRect(0, 0, cv.width, cv.height);
-      ctx.drawImage(bodyImgs.red, 0, 0, cv.width, cv.height);
-      // 換金済みの部位だけ、グレーがかった白の画像に差し替える
+      ctx.drawImage(bodyImgs.gray, 0, 0, cv.width, cv.height);
+      // 換金済みの部位だけ、赤い画像に差し替える
       bodyLost.forEach(function (id) {
         const shapes = BODY_REGIONS[id]; if (!shapes) return;
         ctx.save();
         ctx.beginPath();
         shapes.forEach(function (sh) { bodyShapePath(ctx, sh, k); });
         ctx.clip();
-        ctx.drawImage(bodyImgs.gray, 0, 0, cv.width, cv.height);
+        ctx.drawImage(bodyImgs.red, 0, 0, cv.width, cv.height);
         ctx.restore();
       });
       // 選択中の部位を赤く縁取り
@@ -1821,7 +1901,7 @@
         ctx.save();
         ctx.beginPath();
         shapes.forEach(function (sh) { bodyShapePath(ctx, sh, k); });
-        ctx.strokeStyle = '#ff3030'; ctx.lineWidth = 3.5; ctx.shadowColor = '#ff3030'; ctx.shadowBlur = 12;
+        ctx.strokeStyle = '#ffd24d'; ctx.lineWidth = 3.5; ctx.shadowColor = '#ffd24d'; ctx.shadowBlur = 12;
         ctx.stroke();
         ctx.restore();
       });

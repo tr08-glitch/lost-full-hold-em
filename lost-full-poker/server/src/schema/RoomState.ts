@@ -14,22 +14,21 @@ export type GamePhase =
   | "roundEnd" // ラウンド結果表示中(次ラウンドへの短い間)
   | "gameEnd"; // 全ラウンド終了、最終結果表示
 
-/** ロビーで遊べるミニゲーム「ロシアンルーレット」の状態 */
-export class RouletteState extends Schema {
+/** ロビーで遊べるミニゲーム「ハイ&ロー」の状態 */
+export class IJState extends Schema {
   @type("string") phase: "idle" | "recruiting" | "playing" | "result" = "idle";
   @type("number") bet: number = 0; // 掛け金(次のゲームの初期チップから)
   @type(["string"]) participants = new ArraySchema<string>();
-  @type("string") turnPlayerId: string = "";
-  @type("number") pulls: number = 0; // これまでに引き金を引いた回数(0〜6)
-  @type(["string"]) eliminated = new ArraySchema<string>(); // 被弾して脱落した人(脱落順)
-  @type(["string"]) winners = new ArraySchema<string>(); // 最後まで生き残った人(結果表示用)
-  @type("number") roundNo: number = 0; // 何巡目(再装填の回数+1)
-  @type("number") winnerGain: number = 0; // 勝者1人あたりの純増額(山分け−自分の掛け金)
-  @type("number") turnLeft: number = 0; // 手番の残り秒数
+  @type("string") step: "pick" | "reveal" = "pick"; // pick=予想中 / reveal=結果公開中
+  @type("number") fieldNum: number = 0; // 場の数字(全員に公開)
+  @type(["string"]) pickedIds = new ArraySchema<string>(); // 予想済みの人(内容は非公開)
+  @type(["string"]) winners = new ArraySchema<string>(); // 的中者
+  @type("number") winnerGain: number = 0; // 的中者1人あたりの純増額(山分け−自分の掛け金)
+  @type("number") turnLeft: number = 0; // 予想の残り秒数
 }
 
 export class RoomState extends Schema {
-  @type(RouletteState) roulette = new RouletteState();
+  @type(IJState) ij = new IJState();
   @type({ map: PlayerState }) players = new MapSchema<PlayerState>();
 
   // 座席順(固定)。BTN回転やアクション順の基準にする。
@@ -64,6 +63,8 @@ export class RoomState extends Schema {
   // ジョーカー設定(GMがゲーム設定モーダルで変更可能)
   @type("boolean") jokerEnabled: boolean = false;
   @type("number") jokerCount: number = 2;
+  // 観戦者にプレイヤーの手札を公開するか(GM設定、デフォルト非公開)
+  @type("boolean") spectatorSeeHands: boolean = false;
 
   @type("string") lastAggressorId: string = ""; // ショーダウン公開順の基準
 

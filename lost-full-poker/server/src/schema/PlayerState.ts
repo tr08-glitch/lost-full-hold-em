@@ -63,7 +63,9 @@ export class PlayerState extends Schema {
 
   // 「降参」ボタンによる自発的な離脱(以降のラウンドから除外、観戦扱い)
   @type("boolean") isSurrendered: boolean = false;
-  // ミニゲーム(ロシアンルーレット)で増減した「次のゲームの初期チップ」への加減額。ゲーム開始時に適用して0に戻る
+  // ミニゲーム(ハイ&ロー)で増減した「次のゲームの初期チップ」への加減額。ゲーム開始時に適用して0に戻る
   @type("number") chipDelta: number = 0;
+  // ゲーム開始後に入室した観戦者(座席なし・手番なし)。次のゲーム/ロビー復帰時に通常プレイヤーへ昇格する
+  @type("boolean") isSpectator: boolean = false;
   @type("number") surrenderOrder: number = 0; // 降参した順(1始まり、未降参は0)。結果発表で降参者を最下位に並べる用
 }
