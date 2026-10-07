@@ -242,7 +242,7 @@
         <div style="flex:1; overflow-y:auto;" id="lobbyChatMessages"></div>
         <div class="chat-input-row">
           <select style="width:100px;" id="lobbyChatTarget"><option value="all">全体</option></select>
-          <input type="text" id="lobbyChatInput" placeholder="チャット入力" onkeydown="if(event.key==='Enter') sendLobbyChat()">
+          <input type="text" id="lobbyChatInput" placeholder="チャット入力" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229) sendLobbyChat()">
           <button class="chat-send-btn primary" onclick="sendLobbyChat()">送信</button>
         </div>
       </div>
@@ -287,6 +287,19 @@
   </div>
 
   <!-- ================= 対戦卓画面 ================= -->
+  <div class="app-screen screen-result" id="screen-result" style="background:#0b0b0b;min-height:100vh;color:#eee;padding:32px 16px;box-sizing:border-box;">
+    <div style="max-width:520px;margin:0 auto;">
+      <h1 style="text-align:center;color:#e05252;letter-spacing:4px;margin:0 0 6px;">結果発表</h1>
+      <div id="resultSub" style="text-align:center;color:#999;font-size:13px;margin-bottom:24px;"></div>
+      <div id="resultList"></div>
+      <div id="resultGmButtons" style="display:none;margin-top:28px;gap:10px;">
+        <button onclick="room.send('newGame')" style="flex:1;padding:12px;background:#b91c1c;border:1px solid #e05252;color:#fff;border-radius:6px;cursor:pointer;font-size:15px;">ニューゲーム</button>
+        <button onclick="room.send('returnToLobby')" style="flex:1;padding:12px;background:#222;border:1px solid #888;color:#eee;border-radius:6px;cursor:pointer;font-size:15px;">ルームへ戻る</button>
+      </div>
+      <div id="resultWaitNote" style="display:none;margin-top:24px;text-align:center;color:#999;font-size:13px;">GMの操作を待っています…</div>
+      <button onclick="leaveRoom()" style="display:block;width:100%;margin-top:14px;padding:12px;background:#b91c1c33;border:1px solid #b91c1c;color:#eee;border-radius:6px;cursor:pointer;font-size:15px;">タイトルに戻る</button>
+    </div>
+  </div>
   <div class="app-screen screen-table" id="screen-table">
     <div class="phase-banner" id="phaseBanner"></div>
     <div class="action-turn-banner" id="actionTurnBanner">Action</div>
@@ -304,7 +317,7 @@
       <div class="chat-history-messages" id="chatHistoryMessages"></div>
       <div class="chat-history-input-row">
         <select id="tableChatTarget"><option value="all">全体</option></select>
-        <input type="text" id="tableChatInput" placeholder="チャット入力" onkeydown="if(event.key==='Enter') sendTableChat()">
+        <input type="text" id="tableChatInput" placeholder="チャット入力" onkeydown="if(event.key==='Enter' && !event.isComposing && event.keyCode!==229) sendTableChat()">
         <button onclick="sendTableChat()">送信</button>
       </div>
     </div>
@@ -354,7 +367,6 @@
       <button class="action-btn" id="btnCheck" onclick="doCheck()">チェック</button>
       <button class="action-btn raise" id="btnRaise" onclick="openRaise()">レイズ</button>
       <button class="action-btn" id="btnCall" onclick="doCall()">コール</button>
-      <button class="action-btn allin" id="btnAllin" onclick="confirmAction('allin')">オールイン</button>
       <button class="action-btn lostin" id="btnLostin" onclick="confirmAction('lostin')">ロストイン</button>
       <button class="action-btn fold" id="btnFold" onclick="confirmAction('fold')">フォールド</button>
     </div>
@@ -458,7 +470,7 @@
       return client;
     }
 
-    const screenDisplays = { 'screen-title': 'block', 'screen-join': 'flex', 'screen-room': 'flex', 'screen-table': 'block' };
+    const screenDisplays = { 'screen-title': 'block', 'screen-join': 'flex', 'screen-room': 'flex', 'screen-table': 'block', 'screen-result': 'block' };
     function showScreen(id) {
       document.querySelectorAll('.app-screen').forEach(el => el.style.display = 'none');
       document.getElementById(id).style.display = screenDisplays[id] || 'block';
@@ -575,7 +587,16 @@
         document.getElementById('roomIdText').textContent = room.state.roomCode || '----';
         renderLobbyPlayers();
         if (room.state.mode !== undefined) updateStatusLine();
-        if (room.state.gameStarted) {
+        if (room.state.phase === 'gameEnd') {
+          const meR = room.state.players.get(room.sessionId);
+          const isGMr = !!(meR && meR.isGM);
+          document.getElementById('resultGmButtons').style.display = isGMr ? 'flex' : 'none';
+          document.getElementById('resultWaitNote').style.display = isGMr ? 'none' : 'block';
+          renderResults();
+          showScreen('screen-result');
+        } else if (!room.state.gameStarted) {
+          showScreen('screen-room');
+        } else if (room.state.gameStarted) {
           renderTable();
           showScreen('screen-table');
         }
@@ -614,6 +635,34 @@
       } catch (e) {
         setTimeout(function () { tryReconnect(token, attempt + 1); }, 3000);
       }
+    }
+
+    function renderResults() {
+      const st = room.state;
+      const ps = [];
+      st.players.forEach(function (p) { ps.push(p); });
+      ps.sort(function (a, b) { return b.chips - a.chips; });
+      let rank = 0, prev = null;
+      const medals = ['🥇', '🥈', '🥉'];
+      const list = document.getElementById('resultList');
+      list.innerHTML = '';
+      ps.forEach(function (p, i) {
+        if (prev === null || p.chips !== prev) rank = i + 1;
+        prev = p.chips;
+        const status = p.isDead ? '死亡' : p.isVegetative ? '廃人' : p.isSurrendered ? '降参' : p.isBusted ? 'チップ切れ' : '';
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 16px;margin-bottom:10px;border-radius:8px;background:#141414;border:1px solid ' + (rank === 1 ? '#e0b040' : '#333') + ';' + (p.id === room.sessionId ? 'box-shadow:0 0 0 1px #b91c1c;' : '');
+        row.innerHTML = '<div style="font-size:' + (rank === 1 ? 30 : 22) + 'px;width:56px;text-align:center;">' + (medals[rank - 1] || (rank + '位')) + '</div>' +
+          '<div style="flex:1;"><div style="font-size:16px;font-weight:bold;"></div><div style="font-size:11px;color:#c66;"></div></div>' +
+          '<div style="font-size:18px;color:#e0d060;">' + p.chips + '</div>';
+        row.querySelector('div[style*="font-weight"]').textContent = p.name + (p.id === room.sessionId ? '(自分)' : '');
+        row.querySelectorAll('div')[2].textContent = status;
+        list.appendChild(row);
+      });
+      const alive = ps.filter(function (p) { return !p.isDead && !p.isVegetative && !p.isBusted && !p.isSurrendered; }).length;
+      document.getElementById('resultSub').textContent = alive < 2 && st.roundNumber <= st.maxRounds
+        ? '生存者が1人以下になったため終了(' + Math.min(st.roundNumber, st.maxRounds) + 'ラウンド)'
+        : '全' + st.maxRounds + 'ラウンド終了';
     }
 
     function updateStatusLine() {
@@ -769,24 +818,24 @@
       const color = info.red ? '#d40000' : '#000';
       const uid = 'cix' + (cardSvgIdCounter++);
       const is10 = c.rank === '10';
-      const rankSize = is10 ? 34 : 40;
-      const rx = is10 ? 2 : 6;
+      const rankSize = is10 ? 22 : 27;
+      const rx = is10 ? 3 : 6;
 
       let center = '';
       if (c.rank === 'A') {
-        center = '<text x="50" y="98" font-size="70" text-anchor="middle" fill="' + color + '">' + info.symbol + '</text>';
+        center = '<text x="50" y="95" font-size="54" text-anchor="middle" fill="' + color + '">' + info.symbol + '</text>';
       } else if (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K') {
         center =
-          '<rect x="24" y="30" width="52" height="90" rx="4" fill="#fff6dc" stroke="' + color + '" stroke-width="2.5"/>' +
-          '<text x="50" y="90" font-size="56" font-weight="bold" text-anchor="middle" fill="' + color + '" font-family="Georgia,serif">' + c.rank + '</text>' +
-          '<text x="50" y="58" font-size="22" text-anchor="middle" fill="' + color + '">' + info.symbol + '</text>' +
-          '<text x="50" y="112" font-size="22" text-anchor="middle" fill="' + color + '" transform="rotate(180 50 105)">' + info.symbol + '</text>';
+          '<rect x="32" y="34" width="36" height="82" rx="4" fill="#fff6dc" stroke="' + color + '" stroke-width="2"/>' +
+          '<text x="50" y="86" font-size="38" font-weight="bold" text-anchor="middle" fill="' + color + '" font-family="Georgia,serif">' + c.rank + '</text>' +
+          '<text x="50" y="56" font-size="15" text-anchor="middle" fill="' + color + '">' + info.symbol + '</text>' +
+          '<text x="50" y="108" font-size="15" text-anchor="middle" fill="' + color + '" transform="rotate(180 50 102)">' + info.symbol + '</text>';
       } else {
         const layout = PIP_LAYOUTS[c.rank] || [];
         center = layout.map(function (p) {
-          const px = 18 + p.x * 64 , py = p.y * 150;
+          const px = 31 + p.x * 38, py = p.y * 150;
           const rot = p.flip ? ' transform="rotate(180 ' + px + ' ' + py + ')"' : '';
-          return '<text x="' + px + '" y="' + (py + 9) + '" font-size="28" text-anchor="middle" fill="' + color + '"' + rot + '>' + info.symbol + '</text>';
+          return '<text x="' + px + '" y="' + (py + 7) + '" font-size="20" text-anchor="middle" fill="' + color + '"' + rot + '>' + info.symbol + '</text>';
         }).join('');
       }
 
@@ -794,8 +843,8 @@
         '<svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">' +
         '<rect x="1" y="1" width="98" height="148" rx="8" fill="#ffffff" stroke="#444" stroke-width="2"/>' +
         '<defs><g id="' + uid + '">' +
-        '<text x="' + rx + '" y="32" font-size="' + rankSize + '" font-weight="bold" fill="' + color + '" font-family="Arial,Helvetica,sans-serif">' + c.rank + '</text>' +
-        '<text x="' + (is10 ? 8 : 9) + '" y="58" font-size="30" fill="' + color + '">' + info.symbol + '</text>' +
+        '<text x="' + rx + '" y="25" font-size="' + rankSize + '" font-weight="bold" fill="' + color + '" font-family="Arial,Helvetica,sans-serif">' + c.rank + '</text>' +
+        '<text x="' + (is10 ? 6 : 8) + '" y="45" font-size="20" fill="' + color + '">' + info.symbol + '</text>' +
         '</g></defs>' +
         '<use href="#' + uid + '"/>' +
         '<use href="#' + uid + '" transform="rotate(180 50 75)"/>' +
@@ -859,6 +908,18 @@
       room.onMessage('yourHoleCards', function (message) {
         myHoleCards = message.cards;
         paintMyCards();
+      });
+
+      room.onMessage('exchangeError', function (message) {
+        const t = {
+          dead: '死亡しているため換金できません',
+          vegetative: '廃人(ストレス100以上)のため換金できません',
+          out: '脱落・降参しているため換金できません',
+          already_lost: 'その部位は既に換金済みです',
+          not_lostfull: 'ロストフルモードでのみ換金できます',
+          not_started: 'ゲーム開始前は換金できません'
+        };
+        showToast(t[message.reason] || '換金できません');
       });
 
       room.onMessage('actionError', function (message) {
@@ -1031,7 +1092,6 @@
       if (state.lostInActive) {
         document.getElementById('btnCheck').disabled = true;
         document.getElementById('btnRaise').disabled = true;
-        document.getElementById('btnAllin').disabled = true;
         document.getElementById('btnCall').disabled = !canAct;
         document.getElementById('btnFold').disabled = !canAct || armRestricted;
         document.getElementById('btnLostin').disabled = !canAct;
@@ -1040,7 +1100,6 @@
         document.getElementById('btnCheck').disabled = !canAct || raisePending;
         document.getElementById('btnCall').disabled = !canAct || !raisePending;
         document.getElementById('btnRaise').disabled = !canAct || me.chips <= 0 || armRestricted;
-        document.getElementById('btnAllin').disabled = !canAct || me.chips <= 0 || armRestricted;
         document.getElementById('btnFold').disabled = !canAct || armRestricted;
         document.getElementById('btnLostin').disabled = !canAct;
       }
@@ -1099,10 +1158,10 @@
       leave: '本当に退室しますか?(タイトル画面に戻ります)'
     };
     let pendingAction = null;
+    let pendingExchangePayload = null;
 
     function confirmAction(action) {
       if (action === 'fold' && document.getElementById('btnFold').disabled) return;
-      if (action === 'allin' && document.getElementById('btnAllin').disabled) return;
       if (action === 'lostin') {
         if (document.getElementById('btnLostin').disabled) return;
         if (room && room.state && room.state.lostInActive) action = 'lostin_counter';
@@ -1136,6 +1195,9 @@
         showScreen('screen-title');
       } else if (pendingAction === 'leave') {
         leaveRoom();
+      } else if (pendingAction === 'exchange_fatal' && pendingExchangePayload) {
+        room.send('exchangeBodyPart', pendingExchangePayload);
+        pendingExchangePayload = null;
       }
       closeConfirm();
     }
@@ -1151,18 +1213,18 @@
     }
 
     const PART_DEFS = {
-      "指(左)": { part: "finger", side: "left", value: 30 },
-      "指(右)": { part: "finger", side: "right", value: 30 },
-      "歯": { part: "tooth", value: 200, ids: ["d_teeth"] },
-      "耳(左)": { part: "ear", side: "left", value: 70, ids: ["d_earLeft"] },
-      "耳(右)": { part: "ear", side: "right", value: 70, ids: ["d_earRight"] },
-      "肺(左)": { part: "lung", side: "left", value: 150, ids: ["d_lungLeft"] },
-      "肺(右)": { part: "lung", side: "right", value: 150, ids: ["d_lungRight"] },
-      "目(左)": { part: "eye", side: "left", value: 250, ids: ["d_eyeLeft"] },
-      "目(右)": { part: "eye", side: "right", value: 250, ids: ["d_eyeRight"] },
-      "腕(左)": { part: "arm", side: "left", value: 250, ids: ["d_armLeft", "d_fingerL1", "d_fingerL2", "d_fingerL3", "d_fingerL4", "d_fingerL5"] },
-      "腕(右)": { part: "arm", side: "right", value: 250, ids: ["d_armRight", "d_fingerR1", "d_fingerR2", "d_fingerR3", "d_fingerR4", "d_fingerR5"] },
-      "心臓": { part: "heart", value: 750, ids: ["d_heart"] }
+      "指(左)": { stress: 3, part: "finger", side: "left", value: 30 },
+      "指(右)": { stress: 3, part: "finger", side: "right", value: 30 },
+      "歯": { stress: 10, part: "tooth", value: 200, ids: ["d_teeth"] },
+      "耳(左)": { stress: 10, part: "ear", side: "left", value: 70, ids: ["d_earLeft"] },
+      "耳(右)": { stress: 10, part: "ear", side: "right", value: 70, ids: ["d_earRight"] },
+      "肺(左)": { stress: 25, part: "lung", side: "left", value: 150, ids: ["d_lungLeft"] },
+      "肺(右)": { stress: 25, part: "lung", side: "right", value: 150, ids: ["d_lungRight"] },
+      "目(左)": { stress: 15, part: "eye", side: "left", value: 250, ids: ["d_eyeLeft"] },
+      "目(右)": { stress: 15, part: "eye", side: "right", value: 250, ids: ["d_eyeRight"] },
+      "腕(左)": { stress: 20, part: "arm", side: "left", value: 250, ids: ["d_armLeft", "d_fingerL1", "d_fingerL2", "d_fingerL3", "d_fingerL4", "d_fingerL5"] },
+      "腕(右)": { stress: 20, part: "arm", side: "right", value: 250, ids: ["d_armRight", "d_fingerR1", "d_fingerR2", "d_fingerR3", "d_fingerR4", "d_fingerR5"] },
+      "心臓": { stress: 0, part: "heart", value: 750, ids: ["d_heart"] }
     };
     const LEFT_FINGER_IDS = ["d_fingerL1", "d_fingerL2", "d_fingerL3", "d_fingerL4", "d_fingerL5"];
     const RIGHT_FINGER_IDS = ["d_fingerR1", "d_fingerR2", "d_fingerR3", "d_fingerR4", "d_fingerR5"];
@@ -1237,7 +1299,7 @@
       setPartLost('d_armRight', me.armsLostRight);
       setPartLost('d_heart', me.heartLost);
 
-      document.getElementById('selfRedNote').textContent = '赤札(推定): ' + computeRedNote(me);
+      document.getElementById('selfRedNote').textContent = '赤札(推定): ' + computeRedNote(me) + ' / ストレス: ' + me.stress + '/100' + (me.isDead ? '(死亡)' : me.isVegetative ? '(廃人)' : '');
 
       const select = document.getElementById('drawerPartSelect');
       Array.from(select.options).forEach(function (o) { o.disabled = !isPartAvailable(o.value, me); });
@@ -1245,7 +1307,8 @@
         const nextOpt = Array.from(select.options).find(function (o) { return !o.disabled; });
         if (nextOpt) select.value = nextOpt.value;
       }
-      document.getElementById('drawerExchangeBtn').disabled = !Array.from(select.options).some(function (o) { return !o.disabled; });
+      const canExchange = !me.isDead && !me.isVegetative && !me.isBusted && !me.isSurrendered;
+      document.getElementById('drawerExchangeBtn').disabled = !canExchange || !Array.from(select.options).some(function (o) { return !o.disabled; });
       highlightDrawerPart();
     }
 
@@ -1258,6 +1321,19 @@
       if (!def || !isPartAvailable(key, me)) return;
       const payload = { part: def.part };
       if (def.side) payload.side = def.side;
+      // 死亡 or 廃人になる換金は再確認する
+      let fatal = '';
+      if (def.part === 'heart') fatal = '死亡';
+      else if (def.part === 'lung' && (def.side === 'left' ? me.lungsLostRight : me.lungsLostLeft)) fatal = '死亡';
+      else if (me.stress + def.stress * (me.teethLost ? 2 : 1) >= 100) fatal = '廃人';
+      if (fatal) {
+        pendingExchangePayload = payload;
+        pendingAction = 'exchange_fatal';
+        document.getElementById('confirmMessage').textContent =
+          '「' + key + '」を換金すると' + fatal + 'になります。本当に換金しますか?';
+        document.getElementById('confirmOverlay').classList.add('open');
+        return;
+      }
       room.send('exchangeBodyPart', payload);
     }
     highlightDrawerPart();

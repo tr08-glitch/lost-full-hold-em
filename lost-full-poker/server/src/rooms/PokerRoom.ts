@@ -81,6 +81,8 @@ export class PokerRoom extends Room<RoomState> {
       console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] leaveIntentional received sessionId=${client.sessionId}`);
       this.intentionalLeaves.add(client.sessionId);
     });
+    this.onMessage("newGame", (client) => this.handleNewGame(client));
+    this.onMessage("returnToLobby", (client) => this.handleReturnToLobby(client));
     this.onMessage("kick", (client, message: { targetId?: string }) => this.handleKick(client, message));
     this.onMessage("chat", (client, message: { target?: string; text?: string }) => this.handleChat(client, message));
     console.log(`[LFH] onCreate roomId=${this.roomId}`);
@@ -194,6 +196,7 @@ export class PokerRoom extends Room<RoomState> {
       return;
     }
 
+    if (this.state.phase === "gameEnd") return;
     if (!player.folded && !player.isDead && !player.isVegetative) {
       player.folded = true;
       player.lastAction = "fold";
@@ -335,9 +338,74 @@ export class PokerRoom extends Room<RoomState> {
     this.pushLog("ゲーム設定が更新されました");
   }
 
-  private endGame() {
-    this.state.phase = "gameEnd";
+  /** 結果発表後の再戦/ロビー復帰用:全員のチップ・身体・ストレス等を初期状態に戻す(切断中の人は除外) */
+  private resetForNewGame() {
+    for (const id of [...this.state.seatOrder] as string[]) {
+      const p = this.state.players.get(id);
+      if (!p) continue;
+      if (!p.connected) {
+        this.state.players.delete(id);
+        const idx = this.state.seatOrder.indexOf(id);
+        if (idx !== -1) this.state.seatOrder.splice(idx, 1);
+      }
+    }
+    let seat = 0;
+    for (const id of this.state.seatOrder as string[]) {
+      const p = this.state.players.get(id)!;
+      p.seatIndex = seat++;
+      p.chips = this.state.startingChips;
+      p.currentBet = 0; p.totalRoundBet = 0;
+      p.folded = false; p.allIn = false; p.hasActed = false; p.holeCardCount = 0;
+      p.revealedHoleCards.clear();
+      p.isBTN = false; p.isSB = false; p.isBB = false; p.positionLabel = ""; p.lastAction = "";
+      p.stress = 0; p.isDead = false; p.isVegetative = false;
+      p.fingersLostLeft = 0; p.fingersLostRight = 0; p.teethLost = false;
+      p.earsLostLeft = false; p.earsLostRight = false;
+      p.lungsLostLeft = false; p.lungsLostRight = false;
+      p.eyesLostLeft = false; p.eyesLostRight = false;
+      p.armsLostLeft = false; p.armsLostRight = false; p.heartLost = false;
+      p.publicCardLeft = ""; p.publicCardRight = "";
+      p.isBusted = false; p.isSurrendered = false;
+    }
+    this.holeCards.clear();
+    this.raiseRestricted.clear();
+    this.state.communityCards.clear();
+    this.state.sidePots.clear();
+    this.state.pot = 0;
+    this.state.currentBet = 0;
+    this.state.roundNumber = 0;
+    this.state.actionPlayerId = "";
+    this.state.lastAggressorId = "";
+    this.state.lostInActive = false;
+    this.state.lostInDeclarerId = "";
+    this.state.lostInAmount = 0;
+  }
+
+  private handleNewGame(client: Client) {
+    const gm = this.state.players.get(client.sessionId);
+    if (!gm?.isGM || this.state.phase !== "gameEnd") return;
+    this.resetForNewGame();
+    if (this.state.seatOrder.length < 2) return this.handleReturnToLobby(client);
+    this.state.dealerSeatIndex = Math.floor(Math.random() * this.state.seatOrder.length);
+    this.pushLog("--- ニューゲーム ---");
+    this.startNewRound();
+  }
+
+  private handleReturnToLobby(client: Client) {
+    const gm = this.state.players.get(client.sessionId);
+    if (!gm?.isGM || this.state.phase !== "gameEnd") return;
+    this.resetForNewGame();
     this.state.gameStarted = false;
+    this.state.phase = "waiting";
+    this.state.dealerSeatIndex = -1;
+    this.unlock();
+    this.pushLog("ルームに戻りました");
+  }
+
+  private endGame() {
+    this.actionTimeout?.clear();
+    this.state.actionPlayerId = "";
+    this.state.phase = "gameEnd"; // gameStartedはtrueのまま(クライアントはphaseで結果発表を表示する)
 
     let winner: PlayerState | null = null;
     for (const id of this.state.seatOrder) {
@@ -491,6 +559,7 @@ export class PokerRoom extends Room<RoomState> {
   private handleSurrender(client: Client) {
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
+    if (this.state.phase === "gameEnd") return; // ゲーム終了後は降参不可
     if (player.isDead || player.isVegetative || player.isBusted || player.isSurrendered) return;
 
     if (!this.state.gameStarted) {
@@ -547,12 +616,15 @@ export class PokerRoom extends Room<RoomState> {
 
   /** 身体パーツ換金(チップの有無・自分の手番に関わらず、いつでも実行可能) */
   private handleExchangeBodyPart(client: Client, message: { part?: string; side?: "left" | "right" }) {
-    if (this.state.mode !== "lostfull") return;
-    if (!this.state.gameStarted) return;
+    const deny = (reason: string) => client.send("exchangeError", { reason });
+    if (this.state.mode !== "lostfull") return deny("not_lostfull");
+    if (!this.state.gameStarted || this.state.phase === "gameEnd") return deny("not_started");
 
     const player = this.state.players.get(client.sessionId);
     if (!player) return;
-    if (player.isDead || player.isVegetative || player.isBusted || player.isSurrendered) return;
+    if (player.isDead) return deny("dead");
+    if (player.isVegetative) return deny("vegetative");
+    if (player.isBusted || player.isSurrendered) return deny("out");
 
     const part = message.part;
     const side = message.side;
@@ -567,7 +639,7 @@ export class PokerRoom extends Room<RoomState> {
 
     switch (part) {
       case "finger": {
-        if (side !== "left" && side !== "right") return;
+        if (side !== "left" && side !== "right") return deny("invalid_side");
         const current = side === "left" ? player.fingersLostLeft : player.fingersLostRight;
         if (current >= 5) return;
         if (side === "left") player.fingersLostLeft++;
@@ -579,7 +651,7 @@ export class PokerRoom extends Room<RoomState> {
         break;
       }
       case "tooth": {
-        if (player.teethLost) return;
+        if (player.teethLost) return deny("already_lost");
         player.teethLost = true;
         chipGain = 200;
         stressGain = 10;
@@ -587,12 +659,12 @@ export class PokerRoom extends Room<RoomState> {
         break;
       }
       case "ear": {
-        if (side !== "left" && side !== "right") return;
+        if (side !== "left" && side !== "right") return deny("invalid_side");
         if (side === "left") {
-          if (player.earsLostLeft) return;
+          if (player.earsLostLeft) return deny("already_lost");
           player.earsLostLeft = true;
         } else {
-          if (player.earsLostRight) return;
+          if (player.earsLostRight) return deny("already_lost");
           player.earsLostRight = true;
         }
         chipGain = 70;
@@ -601,12 +673,12 @@ export class PokerRoom extends Room<RoomState> {
         break;
       }
       case "lung": {
-        if (side !== "left" && side !== "right") return;
+        if (side !== "left" && side !== "right") return deny("invalid_side");
         if (side === "left") {
-          if (player.lungsLostLeft) return;
+          if (player.lungsLostLeft) return deny("already_lost");
           player.lungsLostLeft = true;
         } else {
-          if (player.lungsLostRight) return;
+          if (player.lungsLostRight) return deny("already_lost");
           player.lungsLostRight = true;
         }
         chipGain = 150;
@@ -616,12 +688,12 @@ export class PokerRoom extends Room<RoomState> {
         break;
       }
       case "eye": {
-        if (side !== "left" && side !== "right") return;
+        if (side !== "left" && side !== "right") return deny("invalid_side");
         if (side === "left") {
-          if (player.eyesLostLeft) return;
+          if (player.eyesLostLeft) return deny("already_lost");
           player.eyesLostLeft = true;
         } else {
-          if (player.eyesLostRight) return;
+          if (player.eyesLostRight) return deny("already_lost");
           player.eyesLostRight = true;
         }
         chipGain = 250;
@@ -630,12 +702,12 @@ export class PokerRoom extends Room<RoomState> {
         break;
       }
       case "arm": {
-        if (side !== "left" && side !== "right") return;
+        if (side !== "left" && side !== "right") return deny("invalid_side");
         if (side === "left") {
-          if (player.armsLostLeft) return;
+          if (player.armsLostLeft) return deny("already_lost");
           player.armsLostLeft = true;
         } else {
-          if (player.armsLostRight) return;
+          if (player.armsLostRight) return deny("already_lost");
           player.armsLostRight = true;
         }
         chipGain = 250;
@@ -648,7 +720,7 @@ export class PokerRoom extends Room<RoomState> {
         break;
       }
       case "heart": {
-        if (player.heartLost) return;
+        if (player.heartLost) return deny("already_lost");
         player.heartLost = true;
         chipGain = 750;
         stressGain = 0; // 心臓はストレス対象外
@@ -657,7 +729,7 @@ export class PokerRoom extends Room<RoomState> {
         break;
       }
       default:
-        return;
+        return deny("unknown_part");
     }
 
     player.chips += chipGain;
