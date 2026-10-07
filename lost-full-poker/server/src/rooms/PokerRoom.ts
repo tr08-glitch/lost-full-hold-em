@@ -43,6 +43,8 @@ export class PokerRoom extends Room<RoomState> {
   // 現在の手番プレイヤーの行動タイムアウト(30秒操作がなければ自動フォールド)
   private actionTimeout: { clear: () => void } | null = null;
   private static readonly ACTION_TIMEOUT_MS = 30_000;
+  // 切断から強制退室までの猶予(秒)
+  private static readonly DISCONNECT_GRACE_SEC = 20;
   // このハンドの開始時点で配札されたプレイヤーのidスナップショット(座席順)。
   // ハンド途中で降参・死亡(isSurrendered/isDead/isVegetative)になっても、
   // そのハンドのポット計算・進行では引き続きこのリストを使う(activeSeatOrderは
@@ -79,6 +81,7 @@ export class PokerRoom extends Room<RoomState> {
       console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] leaveIntentional received sessionId=${client.sessionId}`);
       this.intentionalLeaves.add(client.sessionId);
     });
+    this.onMessage("kick", (client, message: { targetId?: string }) => this.handleKick(client, message));
     this.onMessage("chat", (client, message: { target?: string; text?: string }) => this.handleChat(client, message));
     console.log(`[LFH] onCreate roomId=${this.roomId}`);
   }
@@ -140,19 +143,41 @@ export class PokerRoom extends Room<RoomState> {
     }
 
     // ページ遷移(title→room-create→table など)や瞬断はここに入る。
-    // 60秒間は同じセッションでの再接続(client.reconnect)を受け付け、
+    // 20秒間は同じセッションでの再接続(client.reconnect)を受け付け、
     // 別プレイヤー扱いにならないようにする。
-    console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: arming allowReconnection(60s) sessionId=${client.sessionId} reconnectionToken=${(client as any)._reconnectionToken}`);
+    console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: arming allowReconnection(20s) sessionId=${client.sessionId} reconnectionToken=${(client as any)._reconnectionToken}`);
     try {
-      await this.allowReconnection(client, 60);
+      await this.allowReconnection(client, PokerRoom.DISCONNECT_GRACE_SEC);
       player.connected = true; // 再接続成功
       console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: RECONNECTED successfully sessionId=${client.sessionId}`);
       this.pushLog(`${player.name}が再接続しました`);
     } catch (e) {
-      // 60秒以内に再接続されなかった → 本当に退室したとみなす
+      // 20秒以内に再接続されなかった → 本当に退室したとみなす
       console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] onLeave: allowReconnection FAILED/EXPIRED sessionId=${client.sessionId} error=${e}`);
       this.handlePlayerGoneForGood(client.sessionId);
     }
+  }
+
+  /** GMによるキック。対象は即座に退室扱いになる */
+  private handleKick(client: Client, message: { targetId?: string }) {
+    const gm = this.state.players.get(client.sessionId);
+    if (!gm || !gm.isGM) return;
+    const targetId = message?.targetId;
+    if (!targetId || targetId === client.sessionId) return;
+    const target = this.state.players.get(targetId);
+    if (!target) return;
+
+    this.intentionalLeaves.add(targetId);
+    const targetClient = this.clients.find((c) => c.sessionId === targetId);
+    if (targetClient) {
+      targetClient.send("kicked", {});
+      targetClient.leave(); // onLeaveが意図的退室として処理する
+    } else {
+      // 既に切断中のプレイヤーは、再接続待ちを待たずに直接処理する
+      this.intentionalLeaves.delete(targetId);
+      this.handlePlayerGoneForGood(targetId);
+    }
+    this.pushLog(`${target.name}がGMにキックされました`);
   }
 
   /** 再接続の見込みがなくなった(退室 or タイムアウト)プレイヤーの後処理 */

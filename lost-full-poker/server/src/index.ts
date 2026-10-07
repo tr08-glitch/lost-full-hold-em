@@ -33,7 +33,7 @@ app.get("/room-by-code/:code", async (req, res) => {
 
 const server = http.createServer(app);
 const gameServer = new Server({
-  transport: new WebSocketTransport({ server }),
+  transport: new WebSocketTransport({ server, pingInterval: 10000, pingMaxRetries: 6 }),
 });
 
 gameServer.define("poker", PokerRoom);

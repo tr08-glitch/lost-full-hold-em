@@ -98,16 +98,16 @@
   .chat-history-input-row button { flex-shrink:0; padding:6px 10px; font-size:12px; }
   .hand-area { position:absolute; bottom:120px; left:50%; transform:translateX(-50%); display:flex; gap:8px; align-items:flex-end; }
   .hand-card, .community-card, .opponent-mini-card {
-    background-image: url('assets/card-face-bg.jpg'); background-size: cover; background-position:center;
+    background:#fbfbf8;
     border: 1px solid #666; border-radius:6px; box-shadow:0 2px 4px #00000088; position:relative; overflow:hidden;
   }
   .hand-card.face-down, .community-card.face-down, .opponent-mini-card.face-down {
     background-image: url('assets/card-back.jpg');
   }
-  .hand-card { width:60px; height:90px; }
-  .community-card { width:48px; height:72px; }
-  .opponent-mini-card { width:26px; height:38px; border-radius:3px; }
-  .hand-label { position:absolute; bottom:90px; left:50%; transform:translateX(-50%); font-size:11px; color:#888; }
+  .hand-card { width:72px; height:108px; }
+  .community-card { width:54px; height:81px; }
+  .opponent-mini-card { width:30px; height:45px; border-radius:3px; }
+  .hand-label { position:absolute; bottom:108px; left:50%; transform:translateX(-50%); font-size:11px; color:#888; }
   .self-panel { position:absolute; bottom:16px; left:16px; background:#141414; border:1px solid #b91c1c; border-radius:8px; padding:12px; width:220px; }
   .self-panel .name { font-size:13px; color:#999; margin-bottom:8px; }
   .row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
@@ -192,8 +192,8 @@
       <input type="text" id="playerNameInput" placeholder="プレイヤー1" maxlength="10">
     </div>
     <div class="menu">
-      <button onclick="startAsGM()">AI戦</button>
-      <button onclick="startAsGM()">ルーム作成</button>
+      <button onclick="startAsGM(this)">AI戦</button>
+      <button onclick="startAsGM(this)">ルーム作成</button>
       <button onclick="goToJoinScreen()">ルーム参加</button>
     </div>
     <div class="credit">Credit</div>
@@ -470,8 +470,10 @@
       currentPlayerName = input.value.trim() || input.placeholder;
     }
 
-    async function startAsGM() {
+    async function startAsGM(btn) {
       readNameInput();
+      const label = btn ? btn.textContent : '';
+      if (btn) { btn.disabled = true; btn.textContent = 'サーバー接続中…(最大1分)'; }
       try {
         room = await getClient().create('poker', {
           name: currentPlayerName,
@@ -484,9 +486,11 @@
         });
       } catch (e) {
         console.error(e);
-        alert('ルームの作成に失敗しました。少し待ってからもう一度お試しください。');
+        alert('ルームの作成に失敗しました。少し待ってからもう一度お試しください。\n(' + (e && e.message ? e.message : e) + ')');
+        if (btn) { btn.disabled = false; btn.textContent = label; }
         return;
       }
+      if (btn) { btn.disabled = false; btn.textContent = label; }
       navigatedAway = false;
       wireRoomEvents();
       showScreen('screen-room');
@@ -541,6 +545,29 @@
     // ---------- ルームロビー画面 ----------
     let tableInitialized = false;
 
+    let reconnectToken = null;
+    let reconnecting = false;
+    async function tryReconnect() {
+      if (reconnecting) return;
+      reconnecting = true;
+      showToast('接続が切れました。再接続中…');
+      for (let i = 0; i < 20 && !navigatedAway; i++) {
+        try {
+          room = await getClient().reconnect(reconnectToken);
+          reconnecting = false;
+          wireRoomEvents();
+          showToast('再接続しました');
+          return;
+        } catch (e) {
+          console.warn('reconnect failed', i, e);
+          await new Promise(function (r) { setTimeout(r, 3000); });
+        }
+      }
+      reconnecting = false;
+      alert('サーバーとの接続が切れました。タイトルに戻ります。');
+      location.reload();
+    }
+
     function wireRoomEvents() {
       document.body.classList.toggle('role-participant', false); // isGMはstate同期後に判定するので一旦リセット
 
@@ -549,10 +576,6 @@
         renderLobbyPlayers();
         if (room.state.mode !== undefined) updateStatusLine();
         if (room.state.gameStarted) {
-          if (!tableInitialized) {
-            tableInitialized = true;
-            wireTableMessages();
-          }
           renderTable();
           showScreen('screen-table');
         }
@@ -560,9 +583,10 @@
 
       room.onLeave(function () {
         if (navigatedAway) return;
-        alert('サーバーとの接続が切れました。タイトルに戻ります。');
-        location.reload();
+        tryReconnect(room.reconnectionToken, 0);
       });
+
+      wireTableMessages();
 
       room.onMessage('chat', function (payload) {
         chatMessages.push(payload);
@@ -574,6 +598,22 @@
       document.getElementById('roomIdText').textContent = room.state.roomCode || '----';
       renderLobbyPlayers();
       updateStatusLine();
+    }
+
+    async function tryReconnect(token, attempt) {
+      if (!token || attempt >= 8) {
+        alert('サーバーとの接続が切れました。タイトルに戻ります。');
+        location.reload();
+        return;
+      }
+      showToast && (function(){ try { showToast('再接続中…(' + (attempt + 1) + ')'); } catch (e) {} })();
+      try {
+        room = await getClient().reconnect(token);
+        wireRoomEvents();
+        if (room.state.gameStarted) { renderTable(); showScreen('screen-table'); }
+      } catch (e) {
+        setTimeout(function () { tryReconnect(token, attempt + 1); }, 3000);
+      }
     }
 
     function updateStatusLine() {
@@ -588,14 +628,24 @@
       const players = [];
       room.state.players.forEach(function (p) { players.push(p); });
       players.sort(function (a, b) { return a.seatIndex - b.seatIndex; });
+      const meForKick = room.state.players.get(room.sessionId);
+      const canKick = !!(meForKick && meForKick.isGM);
       players.forEach(function (p) {
         const li = document.createElement('li');
         li.textContent = p.name + (p.isGM ? '(GM)' : '') + (p.connected ? '' : '(切断中)');
+        if (canKick && p.id !== room.sessionId) {
+          const kb = document.createElement('button');
+          kb.textContent = 'キック';
+          kb.style.cssText = 'margin-left:10px;font-size:11px;padding:2px 8px;background:#5a1010;color:#fff;border:1px solid #b91c1c;border-radius:4px;cursor:pointer;';
+          kb.onclick = function () {
+            if (confirm(p.name + ' をキックしますか?')) room.send('kick', { targetId: p.id });
+          };
+          li.appendChild(kb);
+        }
         list.appendChild(li);
       });
 
-      const me = room.state.players.get(room.sessionId);
-      const isGM = !!(me && me.isGM);
+      const isGM = canKick;
       document.body.classList.toggle('role-participant', !isGM);
 
       const startBtn = document.getElementById('startBtn');
@@ -642,6 +692,7 @@
       if (room) room.leave(true);
       room = null;
       tableInitialized = false;
+      myHoleCards = null;
       lastActionPlayerId = null;
       lastPhase = null;
       document.getElementById('actionTurnBanner').classList.remove('show');
@@ -691,27 +742,22 @@
       return typeof code === 'string' && code.indexOf('JOKER') === 0;
     }
 
-    // 絵札(J/Q/K)・ジョーカーは共通デザイン1枚ずつ(スート違いは同じ絵)。
-    // それ以外の数字カード・A は共通の羊皮紙背景を使う
-    const RANK_BG = { J: 'assets/card-jack.jpg', Q: 'assets/card-queen.jpg', K: 'assets/card-king.jpg' };
-    function faceBackgroundFor(code) {
-      if (isJokerCode(code)) return "url('assets/card-joker.jpg')";
-      const c = parseCard(code);
-      if (RANK_BG[c.rank]) return "url('" + RANK_BG[c.rank] + "')";
-      return "url('assets/card-face-bg.jpg')";
-    }
+    // 一般的なトランプ(白地・赤/黒・大きな数字とマーク)。視認性重視
+    function faceBackgroundFor(code) { return 'none'; }
 
-    /** ジョーカー専用の見た目。絵柄自体で判別できるので、隅に小さく「JK」だけ添える(視認性重視で金文字) */
     function jokerFaceSvg() {
-      const color = '#e8c766';
       const uid = 'cix' + (cardSvgIdCounter++);
       return (
         '<svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">' +
         '<defs><g id="' + uid + '">' +
-        '<text x="8" y="18" font-size="13" font-weight="bold" fill="' + color + '" stroke="#000" stroke-width="0.6" paint-order="stroke">JOKER</text>' +
+        '<text x="7" y="26" font-size="24" font-weight="bold" fill="#7a1fa2">★</text>' +
         '</g></defs>' +
+        '<rect x="1" y="1" width="98" height="148" rx="8" fill="#fff" stroke="#444" stroke-width="2"/>' +
+        '<rect x="14" y="16" width="72" height="118" rx="4" fill="none" stroke="#7a1fa2" stroke-width="2"/>' +
         '<use href="#' + uid + '"/>' +
         '<use href="#' + uid + '" transform="rotate(180 50 75)"/>' +
+        '<text x="50" y="88" font-size="46" text-anchor="middle" fill="#7a1fa2">★</text>' +
+        '<text x="50" y="112" font-size="14" font-weight="bold" text-anchor="middle" fill="#7a1fa2">JOKER</text>' +
         '</svg>'
       );
     }
@@ -720,30 +766,36 @@
       if (isJokerCode(code)) return jokerFaceSvg();
       const c = parseCard(code);
       const info = SUIT_INFO[c.suit] || { symbol: '', red: false };
-      const isFaceCard = c.rank === 'J' || c.rank === 'Q' || c.rank === 'K';
-      // 絵札は背景が暗いイラストなので、視認性重視で金色のコーナー表記にする(数字カードは通来通り黒/赤)
-      const color = isFaceCard ? '#e8c766' : (info.red ? '#a01818' : '#161310');
-      const strokeAttr = isFaceCard ? ' stroke="#000" stroke-width="0.6" paint-order="stroke"' : '';
+      const color = info.red ? '#d40000' : '#000';
       const uid = 'cix' + (cardSvgIdCounter++);
+      const is10 = c.rank === '10';
+      const rankSize = is10 ? 34 : 40;
+      const rx = is10 ? 2 : 6;
 
       let center = '';
       if (c.rank === 'A') {
-        center = '<text x="50" y="84" font-size="46" text-anchor="middle" fill="' + color + '">' + info.symbol + '</text>';
-      } else if (!isFaceCard) {
+        center = '<text x="50" y="98" font-size="70" text-anchor="middle" fill="' + color + '">' + info.symbol + '</text>';
+      } else if (c.rank === 'J' || c.rank === 'Q' || c.rank === 'K') {
+        center =
+          '<rect x="24" y="30" width="52" height="90" rx="4" fill="#fff6dc" stroke="' + color + '" stroke-width="2.5"/>' +
+          '<text x="50" y="90" font-size="56" font-weight="bold" text-anchor="middle" fill="' + color + '" font-family="Georgia,serif">' + c.rank + '</text>' +
+          '<text x="50" y="58" font-size="22" text-anchor="middle" fill="' + color + '">' + info.symbol + '</text>' +
+          '<text x="50" y="112" font-size="22" text-anchor="middle" fill="' + color + '" transform="rotate(180 50 105)">' + info.symbol + '</text>';
+      } else {
         const layout = PIP_LAYOUTS[c.rank] || [];
         center = layout.map(function (p) {
-          const px = p.x * 100, py = p.y * 150;
+          const px = 18 + p.x * 64 , py = p.y * 150;
           const rot = p.flip ? ' transform="rotate(180 ' + px + ' ' + py + ')"' : '';
-          return '<text x="' + px + '" y="' + (py + 5) + '" font-size="15" text-anchor="middle" fill="' + color + '"' + rot + '>' + info.symbol + '</text>';
+          return '<text x="' + px + '" y="' + (py + 9) + '" font-size="28" text-anchor="middle" fill="' + color + '"' + rot + '>' + info.symbol + '</text>';
         }).join('');
       }
-      // J/Q/Kは実際のイラストが中央に表示されるので、中央への文字重ねはコーナー表記のみに留める
 
       return (
         '<svg viewBox="0 0 100 150" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block;">' +
+        '<rect x="1" y="1" width="98" height="148" rx="8" fill="#ffffff" stroke="#444" stroke-width="2"/>' +
         '<defs><g id="' + uid + '">' +
-        '<text x="9" y="20" font-size="15" font-weight="bold" fill="' + color + '"' + strokeAttr + '>' + c.rank + '</text>' +
-        '<text x="9" y="35" font-size="13" fill="' + color + '"' + strokeAttr + '>' + info.symbol + '</text>' +
+        '<text x="' + rx + '" y="32" font-size="' + rankSize + '" font-weight="bold" fill="' + color + '" font-family="Arial,Helvetica,sans-serif">' + c.rank + '</text>' +
+        '<text x="' + (is10 ? 8 : 9) + '" y="58" font-size="30" fill="' + color + '">' + info.symbol + '</text>' +
         '</g></defs>' +
         '<use href="#' + uid + '"/>' +
         '<use href="#' + uid + '" transform="rotate(180 50 75)"/>' +
@@ -756,11 +808,11 @@
       if (!el) return;
       if (!code) { el.classList.add('face-down'); el.style.backgroundImage = ''; el.innerHTML = ''; return; }
       el.classList.remove('face-down');
-      el.style.backgroundImage = faceBackgroundFor(code);
+      el.style.backgroundImage = 'none';
       el.innerHTML = cardFaceSvg(code);
     }
     function miniCardHtml(code) {
-      return '<div class="opponent-mini-card" style="background-image:' + faceBackgroundFor(code) + ';">' + cardFaceSvg(code) + '</div>';
+      return '<div class="opponent-mini-card" style="background-image:none;">' + cardFaceSvg(code) + '</div>';
     }
     function faceDownMiniCardHtml() {
       return '<div class="opponent-mini-card face-down"></div>';
@@ -797,10 +849,16 @@
     }
 
     // ---------- 対戦卓:初回だけ登録するメッセージハンドラ ----------
+    let myHoleCards = null;
+    function paintMyCards() {
+      if (!myHoleCards) return;
+      renderCardEl(document.getElementById('myCard1'), myHoleCards[0]);
+      renderCardEl(document.getElementById('myCard2'), myHoleCards[1]);
+    }
     function wireTableMessages() {
       room.onMessage('yourHoleCards', function (message) {
-        renderCardEl(document.getElementById('myCard1'), message.cards[0]);
-        renderCardEl(document.getElementById('myCard2'), message.cards[1]);
+        myHoleCards = message.cards;
+        paintMyCards();
       });
 
       room.onMessage('actionError', function (message) {
@@ -935,6 +993,8 @@
       if (me.revealedHoleCards.length === 2) {
         renderCardEl(document.getElementById('myCard1'), me.revealedHoleCards[0]);
         renderCardEl(document.getElementById('myCard2'), me.revealedHoleCards[1]);
+      } else {
+        paintMyCards();
       }
     }
 
@@ -1068,6 +1128,7 @@
         navigatedAway = true;
         room = null;
         tableInitialized = false;
+      myHoleCards = null;
         chatMessages = [];
         document.getElementById('lobbyChatMessages').innerHTML = '';
         document.getElementById('chatFlow').innerHTML = '';
