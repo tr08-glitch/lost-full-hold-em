@@ -686,6 +686,18 @@
     function renderJoinCode() {
       document.getElementById('codeDisplay').textContent = (joinCode + '____').slice(0, 4);
     }
+    // PCのキーボード操作: 数字キー(テンキー可)で入力、Backspaceで1桁消す、Enterで決定
+    document.addEventListener('keydown', function (e) {
+      const scr = document.getElementById('screen-join');
+      if (!scr || scr.style.display === 'none' || !scr.style.display) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+      if (/^[0-9]$/.test(e.key)) { pressKey(e.key); e.preventDefault(); }
+      else if (e.key === 'Backspace') { joinCode = joinCode.slice(0, -1); renderJoinCode(); e.preventDefault(); }
+      else if (e.key === 'Delete' || e.key === 'Escape') { clearJoinCode(); e.preventDefault(); }
+      else if (e.key === 'Enter') { const b = document.getElementById('joinConfirmBtn'); if (b && !b.disabled) doJoinRoom(); e.preventDefault(); }
+    });
     async function doJoinRoom() {
       if (joinCode.length !== 4) {
         document.getElementById('joinError').textContent = '4桁のコードを入力してください';
@@ -754,12 +766,30 @@
       document.body.appendChild(b);
     })();
 
+    let lastLeaveCode = null;
+    function isRoomConnected() {
+      try { return !!(room && room.connection && room.connection.isOpen); } catch (e) { return false; }
+    }
+    // 状態が届いている=接続は生きている。残っている「再接続中…」の帯を消す
+    function clearStaleReconnectNotice() {
+      const n = document.getElementById('lfhNotice');
+      if (n && n.style.display !== 'none' && /^接続が切れました/.test(n.textContent) && isRoomConnected()) {
+        reconnecting = false;
+        n.style.display = 'none';
+      }
+    }
     async function tryReconnect() {
       if (reconnecting) return;
       reconnecting = true;
-      notify('接続が切れました。再接続中…');
+      notify('接続が切れました(コード ' + lastLeaveCode + ')。再接続中…');
       const dcStart = Date.now();
       for (let i = 0; Date.now() - dcStart < 32000 && !navigatedAway; i++) {
+        // すでに接続が生きている(別経路で復帰済み)なら、再接続を重ねず表示だけ消して終了する
+        if (isRoomConnected()) {
+          reconnecting = false;
+          notify('再接続しました', 1500);
+          return;
+        }
         try {
           room = await getClient().reconnect(reconnectToken);
           reconnecting = false;
@@ -805,6 +835,7 @@
       document.body.classList.toggle('role-participant', false); // isGMはstate同期後に判定するので一旦リセット
 
       room.onStateChange(function () {
+        clearStaleReconnectNotice();
         document.getElementById('roomIdText').textContent = room.state.roomCode || '----';
         renderLobbyPlayers();
         renderIJ();
@@ -826,8 +857,10 @@
       });
 
       saveSession();
-      room.onLeave(function () {
+      room.onLeave(function (code) {
         if (navigatedAway) return;
+        lastLeaveCode = code; // 切断の原因調査用(1006=通信が異常終了、1001=ページ移動/サーバー停止 など)
+        console.warn('[LFH] room left, code=', code, new Date().toISOString());
         tryReconnect();
       });
       room.onMessage('kicked', function () {
@@ -838,6 +871,7 @@
       });
 
       wireTableMessages();
+      try { room.send('requestHoleCards'); } catch (e) {} // リロード/再接続後に、自分の手札をサーバーから取り直す
 
       room.onMessage('chat', function (payload) {
         chatMessages.push(payload);
@@ -1755,7 +1789,8 @@
     }
 
     function renderSelfPanel(state, me) {
-      document.body.classList.toggle('self-out', !!(me.isBusted || me.isDead || me.isVegetative || me.isSurrendered));
+      // 脱落後は手を引っ込める。ただしロストインで死亡した直後など、まだこのハンドに残っている間(フォールドしていない間)は手札を見せる
+      document.body.classList.toggle('self-out', !!((me.isBusted || me.isDead || me.isVegetative || me.isSurrendered) && me.folded));
       document.getElementById('selfName').textContent = me.name + '(自分)' + (me.isSurrendered ? ' 観戦中' : '');
       document.querySelector('.top-right-actions .surrender').style.display = me.isSurrendered ? 'none' : '';
       // 指を4本以上失った側のカードは、手に持てないので卓の上に置く
@@ -2065,6 +2100,16 @@
     const LEFT_FINGER_IDS = ["d_fingerL1", "d_fingerL2", "d_fingerL3", "d_fingerL4", "d_fingerL5"];
     const RIGHT_FINGER_IDS = ["d_fingerR1", "d_fingerR2", "d_fingerR3", "d_fingerR4", "d_fingerR5"];
 
+    // 換金リストの金額表示を、初期チップ額に合わせて更新する
+    function refreshPartOptionLabels() {
+      const sel = document.getElementById('drawerPartSelect');
+      if (!sel) return;
+      Array.from(sel.options).forEach(function (o) {
+        const d = PART_DEFS[o.value];
+        if (!d) return;
+        o.textContent = o.value + ' +' + pv(d.value) + ' / ' + (d.part === 'heart' ? '即死' : 'ストレス' + d.stress);
+      });
+    }
     function isPartAvailable(key, me) {
       const def = PART_DEFS[key];
       if (!def || !me) return false;
@@ -2080,19 +2125,24 @@
       }
     }
 
+    // 部位の換金価格は初期チップ額に比例(基準: 初期チップ1000のときの価格)
+    function pv(base) {
+      const sc = (room && room.state && room.state.startingChips ? room.state.startingChips : 1000) / 1000;
+      return Math.max(1, Math.round(base * sc));
+    }
     function computeRedNote(me) {
       if (!me) return 0;
       let total = 0;
-      total += (5 - me.fingersLostLeft) * 20 + (5 - me.fingersLostRight) * 20;
-      if (!me.teethLost) total += 200;
-      if (!me.earsLostLeft && !me.earsLostRight) total += 140;
-      if (!me.lungsLostLeft) total += 150;
-      if (!me.lungsLostRight) total += 150;
-      if (!me.eyesLostLeft) total += 250;
-      if (!me.eyesLostRight) total += 250;
-      if (!me.armsLostLeft) total += 150;
-      if (!me.armsLostRight) total += 150;
-      if (!me.heartLost) total += 400; // ロストインは心臓も含む
+      total += (5 - me.fingersLostLeft) * pv(20) + (5 - me.fingersLostRight) * pv(20);
+      if (!me.teethLost) total += pv(200);
+      if (!me.earsLostLeft && !me.earsLostRight) total += pv(140);
+      if (!me.lungsLostLeft) total += pv(150);
+      if (!me.lungsLostRight) total += pv(150);
+      if (!me.eyesLostLeft) total += pv(250);
+      if (!me.eyesLostRight) total += pv(250);
+      if (!me.armsLostLeft) total += pv(150);
+      if (!me.armsLostRight) total += pv(150);
+      if (!me.heartLost) total += pv(400); // ロストインは心臓も含む
       return total;
     }
 
@@ -2236,7 +2286,7 @@
       const stress = def.stress * mult;
       const avail = !me || isPartAvailable(key, me);
       let h = '<div class="di-name">' + key + (avail ? '' : '(換金済み)') + '</div>' +
-        '<div class="di-price"><span>換金額 <b>+' + def.value + '</b></span><span class="st">ストレス <b>' + (def.part === 'heart' ? 'なし' : '+' + stress) + '</b>' + (mult === 2 && def.stress ? '(歯の喪失で2倍)' : '') + '</span></div>';
+        '<div class="di-price"><span>換金額 <b>+' + pv(def.value) + '</b></span><span class="st">ストレス <b>' + (def.part === 'heart' ? 'なし' : '+' + stress) + '</b>' + (mult === 2 && def.stress ? '(歯の喪失で2倍)' : '') + '</span></div>';
       partEffects(def, me).forEach(function (t) { h += '<div class="di-eff">' + t + '</div>'; });
       if (me && avail) {
         let warn = '';
@@ -2279,6 +2329,7 @@
       document.getElementById('selfRedNote').textContent = '赤札(推定): ' + computeRedNote(me) + ' / ストレス: ' + me.stress + '/100' + (me.isDead ? '(死亡)' : me.isVegetative ? '(廃人)' : '');
 
       const select = document.getElementById('drawerPartSelect');
+      refreshPartOptionLabels();
       Array.from(select.options).forEach(function (o) { o.disabled = !isPartAvailable(o.value, me); });
       if (!isPartAvailable(select.value, me)) {
         const nextOpt = Array.from(select.options).find(function (o) { return !o.disabled; });
