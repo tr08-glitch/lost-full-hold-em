@@ -99,7 +99,7 @@ export class PokerRoom extends Room<RoomState> {
       const cards = this.holeCards.get(client.sessionId);
       const p = this.state.players.get(client.sessionId);
       // 観戦者なら、手札公開設定がオンのとき全員分の手札を取り直せる(入室直後・リロード直後の取りこぼし対策)
-      if (p?.isSpectator) {
+      if (p && this.isHandWatcher(p)) {
         this.sendSpectatorHands(client.sessionId);
         return;
       }
@@ -852,6 +852,11 @@ export class PokerRoom extends Room<RoomState> {
     });
   }
 
+  /** 手札公開の対象: 観戦者、または脱落(破産/死亡/廃人/降参)してフォールド済みのプレイヤー */
+  private isHandWatcher(pl: PlayerState): boolean {
+    return pl.isSpectator || (pl.folded && (pl.isBusted || pl.isDead || pl.isVegetative || pl.isSurrendered));
+  }
+
   /** 観戦者への手札公開(設定がオンのときだけ)。sessionId指定でその観戦者のみに送る */
   private sendSpectatorHands(onlyId?: string) {
     if (!this.state.spectatorSeeHands) return;
@@ -864,7 +869,7 @@ export class PokerRoom extends Room<RoomState> {
     }
     for (const c of this.clients) {
       const pl = this.state.players.get(c.sessionId);
-      if (!pl?.isSpectator) continue;
+      if (!pl || !this.isHandWatcher(pl)) continue;
       if (onlyId && c.sessionId !== onlyId) continue;
       c.send("spectatorHands", { hands });
     }

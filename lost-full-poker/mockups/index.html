@@ -1596,7 +1596,11 @@
         if (sessionId !== room.sessionId) others.push(p);
       });
       const meSp = state.players.get(room.sessionId);
-      const iAmSpectator = !!(meSp && meSp.isSpectator);
+      const iAmSpectator = !!(meSp && (meSp.isSpectator || (meSp.folded && (meSp.isBusted || meSp.isDead || meSp.isVegetative || meSp.isSurrendered))));
+      if (iAmSpectator && state.spectatorSeeHands) {
+        const wk = state.roundNumber + ':' + state.phase;
+        if (wk !== lastWatchKey) { lastWatchKey = wk; try { room.send('requestHoleCards'); } catch (e) {} }
+      }
       // 観戦者は自分の席がないので、全プレイヤーを相手枠として並べる(手札公開設定がオンなら手札も見える)
       // 自分から時計回りに並べ、卓の形の席(下→左→上→右)へ割り当てる
       const mySeat = meSp && !meSp.isSpectator ? meSp.seatIndex : 0;
@@ -1844,6 +1848,7 @@
     }
 
     let spectatorHands = {};
+    let lastWatchKey = '';
 
     // ---------- チップ画像(白=1 / 赤=10 / 黒=100 / 金=1000) ----------
     const CHIP_DENOMS = [[1000, 'gold'], [100, 'black'], [10, 'red'], [1, 'white']];
