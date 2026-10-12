@@ -69,6 +69,8 @@ export class RoomState extends Schema {
   @type("boolean") deckReuse: boolean = false;
   // 観戦者にプレイヤーの手札を公開するか(GM設定、デフォルト非公開)
   @type("boolean") spectatorSeeHands: boolean = false;
+  // フォールドしたプレイヤーが、そのハンドの間、他の全員の手札を見られるか(GM設定、デフォルト非公開)
+  @type("boolean") foldedSeeHands: boolean = false;
 
   @type("string") lastAggressorId: string = ""; // ショーダウン公開順の基準
 

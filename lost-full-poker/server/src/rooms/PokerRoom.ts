@@ -98,14 +98,13 @@ export class PokerRoom extends Room<RoomState> {
     this.onMessage("requestHoleCards", (client) => {
       const cards = this.holeCards.get(client.sessionId);
       const p = this.state.players.get(client.sessionId);
-      // 観戦者なら、手札公開設定がオンのとき全員分の手札を取り直せる(入室直後・リロード直後の取りこぼし対策)
-      if (p && this.isHandWatcher(p)) {
-        this.sendSpectatorHands(client.sessionId);
-        return;
-      }
-      if (cards && p && p.holeCardCount > 0 && this.state.gameStarted && this.state.phase !== "gameEnd") {
+      if (!p) return;
+      // 自分の手札(観戦者以外)
+      if (!p.isSpectator && cards && p.holeCardCount > 0 && this.state.gameStarted && this.state.phase !== "gameEnd") {
         client.send("yourHoleCards", { cards });
       }
+      // 手札公開の対象なら、全員分の手札も取り直せる(入室直後・リロード直後・フォールド直後の取りこぼし対策)
+      if (this.canSeeAllHands(p)) this.sendSpectatorHands(client.sessionId);
     });
     this.onMessage("leaveIntentional", (client) => {
       console.log(`[LFH][room=${this.roomId} code=${this.state.roomCode}] leaveIntentional received sessionId=${client.sessionId}`);
@@ -745,6 +744,7 @@ export class PokerRoom extends Room<RoomState> {
       jokerEnabled: boolean;
       jokerCount: number;
       spectatorSeeHands: boolean;
+      foldedSeeHands: boolean;
       deckReuse: boolean;
     }>
   ) {
@@ -778,6 +778,9 @@ export class PokerRoom extends Room<RoomState> {
     }
     if (typeof message.deckReuse === "boolean") {
       this.state.deckReuse = message.deckReuse;
+    }
+    if (typeof message.foldedSeeHands === "boolean") {
+      this.state.foldedSeeHands = message.foldedSeeHands;
     }
     if (typeof message.spectatorSeeHands === "boolean") {
       this.state.spectatorSeeHands = message.spectatorSeeHands;
@@ -852,14 +855,23 @@ export class PokerRoom extends Room<RoomState> {
     });
   }
 
-  /** 手札公開の対象: 観戦者、または脱落(破産/死亡/廃人/降参)してフォールド済みのプレイヤー */
-  private isHandWatcher(pl: PlayerState): boolean {
-    return pl.isSpectator || (pl.folded && (pl.isBusted || pl.isDead || pl.isVegetative || pl.isSurrendered));
+  /** 脱落(破産/死亡/廃人/降参)してフォールド済みか */
+  private isOutAndFolded(pl: PlayerState): boolean {
+    return pl.folded && (pl.isBusted || pl.isDead || pl.isVegetative || pl.isSurrendered);
   }
 
-  /** 観戦者への手札公開(設定がオンのときだけ)。sessionId指定でその観戦者のみに送る */
+  /** 他プレイヤーの手札を見てよいか:
+   *  観戦者・脱落者は「観戦者への手札の公開」、ゲーム中にフォールドした人は「フォールド後の手札の閲覧」がオンのとき */
+  private canSeeAllHands(pl: PlayerState): boolean {
+    if (pl.isSpectator || this.isOutAndFolded(pl)) {
+      if (this.state.spectatorSeeHands) return true;
+    }
+    if (!pl.isSpectator && pl.folded && this.state.foldedSeeHands && this.state.gameStarted) return true;
+    return false;
+  }
+
+  /** 手札の公開(設定がオンの対象だけ)。sessionId指定でその人のみに送る */
   private sendSpectatorHands(onlyId?: string) {
-    if (!this.state.spectatorSeeHands) return;
     if (this.holeCards.size === 0) return;
     if (!["preflop", "flop", "turn", "river", "judge", "showdown"].includes(this.state.phase)) return;
     const hands: Record<string, string[]> = {};
@@ -869,7 +881,7 @@ export class PokerRoom extends Room<RoomState> {
     }
     for (const c of this.clients) {
       const pl = this.state.players.get(c.sessionId);
-      if (!pl || !this.isHandWatcher(pl)) continue;
+      if (!pl || !this.canSeeAllHands(pl)) continue;
       if (onlyId && c.sessionId !== onlyId) continue;
       c.send("spectatorHands", { hands });
     }

@@ -236,13 +236,13 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 2. `lostInActive`がtrueの間、手番のプレイヤーは以下の4つの`action`のみ有効:
    - `{type:"fold"}`:このロストインを無視してフォールド
    - `{type:"call"}`:赤札額(`lostInAmount`)分を通常チップで支払う → **即座に宣言者のロストインが実行され、ショーダウンに進む**
-   - `{type:"allin"}`:手持ちを全て賭けて応答(`call`と同様に即座に宣言者のロストインが実行される)
+   - `allin`は不可。`call`は赤札額と同額のみ(手持ちが足りないと `actionError: cannot_call_lostin`)
    - `{type:"lostin"}`:自分も対抗ロストインする(自分の残存部位を換算した独自の赤札額で)→ **宣言者・自分の両方のロストインが即座に実行され、ショーダウンに進む**
 3. 手番の全員が`fold`した場合(宣言者以外が全員フォールド):ロストインは不実行のまま終了し、宣言者が通常のポットを獲得する(身体は失わない)
 4. コール・対抗ロストインで実行が確定した時点で、まだ応答していない他のプレイヤーは自動的にフォールド扱いになり、残りのコミュニティカードが公開されてショーダウンに進む
 5. ロストインを実行したプレイヤー(宣言者・対抗者とも)は、勝敗に関わらず`isDead=true`になる
 
-`actionError`の`reason: "lostin_response_required"`は、`lostInActive`中に上記4種類(fold/call/lostin/allin)以外の`action`を送った場合に返る。
+`actionError`の`reason: "lostin_response_required"`は、`lostInActive`中に上記3種類(fold/call/lostin)以外の`action`を送った場合に返る。
 
 ## 今後の課題(未着手)
 - ルームコード(4桁)を人に伝える手段(コピー機能など)はUI未実装。今は画面に表示するのみ
@@ -258,6 +258,8 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 ## 観戦者
 - ゲーム開始後に入室した人は `players[id].isSpectator = true`(座席なし・手番なし・チップ0)。ニューゲーム/ロビー復帰時に空き席があれば通常プレイヤーに昇格。
 - 設定 `spectatorSeeHands`(GM、デフォルトfalse)がtrueのとき、観戦者に `spectatorHands { hands: {playerId: [card, card]} }` が各ラウンド開始時と入室時に送られる。
+  観戦者に加え、脱落(破産/死亡/廃人/降参)してフォールド済みのプレイヤーも対象。`requestHoleCards` を送ると取り直せる。
+- 設定 `foldedSeeHands`(GM、デフォルトfalse)がtrueのとき、そのハンドでフォールドした参加者にも同じ `spectatorHands` が送られる(フォールド後に `requestHoleCards` を送ると受け取れる)。
 
 
 ## 終了時の順位
@@ -277,7 +279,7 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 | 心臓 | 400 | なし(即死) |
 
 - ロストインの赤札=残存部位の合計(**心臓も含む**)。実行時は心臓も失う(`heartLost=true, isDead=true`)。
-- 腕喪失中でも、レイズにならない`allin`(手持ち全額でも現在のベットに届かない場合、ロストイン応答時は手持ち≦赤札額の場合)は可能。ロストインへの応答では`allin`(手持ちを全て賭ける)も有効。
+- 腕喪失中でも、レイズにならない`allin`(手持ち全額でも現在のベットに届かない場合、ロストイン応答時は手持ち≦赤札額の場合)は可能。ロストインへの応答では`allin`は無効(同額`call`か`lostin`のみ)。
 
 ## カードの落下(指の欠損)
 - server→client(全員にbroadcast): `cardDrop { playerId, side:"left"|"right", card, ms }`(ms=見えている時間。3500)
@@ -287,3 +289,8 @@ publicCardLeft, publicCardRight   // 指の喪失で公開されたホールカ�
 ## 切断・復帰
 - `PlayerState.connected=false` の間、`disconnectLeft` に復帰猶予の残り秒数(初期30)が毎秒更新される。
 - 猶予切れでゲーム中なら `isSurrendered=true`(強制敗北)。環境変数 `DC_GRACE` で猶予秒数を変更可(テスト用)。
+
+- 設定 `updateSettings` に `deckReuse: boolean`(state.deckReuse、デフォルトfalse)を追加。
+
+## 結果発表のスコア
+- `PlayerState.finalScore`(最終スコア)と `partsBonus`(生存者に加算された残存部位の換算額)が endGame 時に確定する。死亡/廃人は chips×0.7、生存者は chips+partsBonus。強制敗北は無い。
