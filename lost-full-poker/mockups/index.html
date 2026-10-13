@@ -17,6 +17,25 @@
   /* 低い横画面(スマホ横持ち)では、タイトル/参加/ロビーが縦に溢れないようスクロールできるようにする */
   @media (max-height: 520px) { .screen-title, .screen-join, .screen-room { height:auto; min-height:100vh; } .screen-result { min-height:100vh; } }
 
+
+  /* ---------- 累計成績(タイトル画面) ---------- */
+  .stats-card { position:absolute; right:32px; top:50%; transform:translateY(-50%); width:250px; background:#0d0a0acc; border:1px solid #5a2a2a; border-radius:10px; padding:12px 14px 14px; color:#e5dcc8; z-index:2; box-shadow:0 0 18px #000a; }
+  .stats-card .st-title { font-size:12px; letter-spacing:3px; color:#c9a43a; margin-bottom:8px; text-align:center; }
+  .stats-seg { display:flex; border:1px solid #444; border-radius:6px; overflow:hidden; margin-bottom:10px; }
+  .stats-seg button { flex:1; background:#141414; color:#999; border:none; border-right:1px solid #333; padding:6px 0; font-size:12px; cursor:pointer; font-family:inherit; }
+  .stats-seg button:last-child { border-right:none; }
+  .stats-seg button.on { background:#3a0f0f; color:#ffd24d; font-weight:bold; }
+  .st-main { text-align:center; margin-bottom:8px; }
+  .st-main .lbl { font-size:11px; color:#999; letter-spacing:2px; }
+  .st-main .val { font-size:30px; font-weight:bold; line-height:1.2; }
+  .st-main .val.plus { color:#6fe28a; } .st-main .val.minus { color:#ff6b6b; } .st-main .val.zero { color:#ccc; }
+  .st-row { display:flex; justify-content:space-between; font-size:12px; color:#bbb; padding:2px 0; }
+  .st-row b { color:#eee; }
+  .st-spark { display:flex; align-items:center; gap:2px; height:34px; margin-top:8px; border-top:1px solid #2a2a2a; padding-top:6px; }
+  .st-spark i { flex:1; min-width:1px; display:block; border-radius:1px; }
+  .st-empty { text-align:center; font-size:12px; color:#888; padding:10px 0; line-height:1.6; }
+  @media (max-width: 900px) { .stats-card { right:auto; left:10px; top:auto; bottom:10px; transform:none; width:190px; padding:8px 10px 10px; } .st-main .val { font-size:22px; } .st-spark { display:none; } }
+
   /* ---------- タイトル画面 ---------- */
   .screen-title { position:relative; width:100%; height:100vh; box-sizing:border-box; padding:24px; background:#050304 url('assets/title-bg.jpg') center/cover no-repeat; overflow:hidden; }
   .title-center { position:absolute; left:50%; top:51%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:14px; width:min(92%,420px); }
@@ -346,6 +365,15 @@
         <button onclick="openRules()">ルール説明</button>
       </div>
     </div>
+    <div class="stats-card" id="statsCard">
+      <div class="st-title">累計成績</div>
+      <div class="stats-seg" id="statsSeg">
+        <button data-n="0" class="on" onclick="setStatsRange(0)">累計</button>
+        <button data-n="10" onclick="setStatsRange(10)">直近10戦</button>
+        <button data-n="50" onclick="setStatsRange(50)">直近50戦</button>
+      </div>
+      <div id="statsBody"></div>
+    </div>
     <div class="credit">Credit</div>
   </div>
 
@@ -645,6 +673,67 @@
       document.getElementById(id).style.display = screenDisplays[id] || 'block';
     }
 
+
+    // ---------- 累計成績(この端末のブラウザに保存。最後まで遊んだゲームだけ記録) ----------
+    const HISTORY_KEY = 'lfhHistory';
+    let statsRange = 0;
+    function loadHistory() {
+      try { const a = JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); return Array.isArray(a) ? a : []; } catch (e) { return []; }
+    }
+    function saveHistory(list) {
+      try { localStorage.setItem(HISTORY_KEY, JSON.stringify(list.slice(-500))); } catch (e) {}
+    }
+    /** ゲーム終了(結果発表)時に、自分のチップの増減を1ゲーム分として記録する。同じ結果の二重記録は防ぐ */
+    function recordGameResult(state) {
+      try {
+        const me = state.players.get(room.sessionId);
+        if (!me || me.isSpectator || !state.startingChips) return;
+        const key = room.roomId + ':' + state.roundNumber + ':' + me.chips + ':' + state.startingChips + ':' + (state.endReason || '');
+        let last = ''; try { last = localStorage.getItem('lfhLastRecorded') || ''; } catch (e) {}
+        if (last === key) return;
+        const list = loadHistory();
+        list.push({ t: Date.now(), mode: state.mode, start: state.startingChips, end: me.chips, diff: me.chips - state.startingChips });
+        saveHistory(list);
+        try { localStorage.setItem('lfhLastRecorded', key); } catch (e) {}
+        renderStats();
+      } catch (e) {}
+    }
+    function setStatsRange(n) {
+      statsRange = n;
+      document.querySelectorAll('#statsSeg button').forEach(function (b) { b.classList.toggle('on', Number(b.dataset.n) === n); });
+      renderStats();
+    }
+    function renderStats() {
+      const body = document.getElementById('statsBody');
+      if (!body) return;
+      const all = loadHistory();
+      const list = statsRange > 0 ? all.slice(-statsRange) : all;
+      if (!list.length) {
+        body.innerHTML = '<div class="st-empty">まだ記録がありません。<br>ゲームを最後まで遊ぶと、ここに収支が表示されます。</div>';
+        return;
+      }
+      const total = list.reduce(function (a, g) { return a + g.diff; }, 0);
+      const plus = list.filter(function (g) { return g.diff > 0; }).length;
+      const best = Math.max.apply(null, list.map(function (g) { return g.diff; }));
+      const worst = Math.min.apply(null, list.map(function (g) { return g.diff; }));
+      const fmt = function (n) { return (n > 0 ? '+' : '') + n; };
+      const cls = total > 0 ? 'plus' : total < 0 ? 'minus' : 'zero';
+      const maxAbs = Math.max(1, Math.max.apply(null, list.map(function (g) { return Math.abs(g.diff); })));
+      const bars = list.slice(-30).map(function (g) {
+        const h = Math.max(2, Math.round(Math.abs(g.diff) / maxAbs * 15));
+        const up = g.diff >= 0;
+        return '<i title="' + fmt(g.diff) + '" style="height:' + h + 'px;background:' + (up ? '#4fbf6f' : '#d95555') + ';align-self:' + (up ? 'flex-end' : 'flex-start') + ';"></i>';
+      }).join('');
+      body.innerHTML =
+        '<div class="st-main"><div class="lbl">収支(BETの増減)</div><div class="val ' + cls + '">' + fmt(total) + '</div></div>' +
+        '<div class="st-row"><span>ゲーム数</span><b>' + list.length + '</b></div>' +
+        '<div class="st-row"><span>プラス収支</span><b>' + plus + ' / ' + list.length + '(' + Math.round(plus / list.length * 100) + '%)</b></div>' +
+        '<div class="st-row"><span>1ゲーム最高</span><b>' + fmt(best) + '</b></div>' +
+        '<div class="st-row"><span>1ゲーム最低</span><b>' + fmt(worst) + '</b></div>' +
+        '<div class="st-spark">' + bars + '</div>';
+    }
+    renderStats();
+
     // ---------- タイトル画面 ----------
     function readNameInput() {
       const input = document.getElementById('playerNameInput');
@@ -859,6 +948,7 @@
           document.getElementById('resultGmButtons').style.display = isGMr ? 'flex' : 'none';
           document.getElementById('resultWaitNote').style.display = isGMr ? 'none' : 'block';
           renderResults();
+          recordGameResult(room.state);
           showScreen('screen-result');
         } else if (!room.state.gameStarted) {
           showScreen('screen-room');
